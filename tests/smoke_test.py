@@ -158,13 +158,16 @@ try:
     print("German notes (language: de)")
     vault_de = tmp / "home" / "Dokumente" / "Zweites-Gehirn"
     run(REPO / "scripts/setup_vault.py", "--vault", vault_de)
-    cfg_de = dict(cfg, language="de", exclude_sectors=["Medizin & Gesundheit"])
+    cfg_de = dict(cfg, language="de", exclude_sectors=["Medizin & Gesundheit"],
+                  message_topics=[["Recruiting", "recruit|looking for"], ["Interviewanfrage", "interview", "Start-up"]])
     (tmp / "themen.json").write_text(json.dumps(cfg_de), encoding="utf-8")
     run(REPO / "scripts/import_linkedin.py", "--vault", vault_de, "--zip", tmp / "export.zip", "--config", tmp / "themen.json", "--exclude-lastname", "Sample")
     erika = next((vault_de / "05 People").rglob("Erika Example.md")).read_text(encoding="utf-8")
     check((vault_de / "05 People/Wen fragen.md").exists() and "## Ansprechpartner für" in erika and "Diplomatie & Außenhandel" in erika,
           "German note names, headings and sector names")
     check((vault_de / "02 Areas/Karriere/Lebenslauf.md").exists(), "German CV path")
+    paul = next((vault_de / "05 People").rglob("Paul Probe.md")).read_text(encoding="utf-8")
+    check("[[Start-up]]" in paul and "Interviewanfrage" in paul, "message topic linked to a vault topic")
 
     print("brain.py")
     brain = vault / "scripts/brain.py"

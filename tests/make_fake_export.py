@@ -17,7 +17,7 @@ files = {
   "Tom,Empty,https://www.linkedin.com/in/tom-empty,,,,05 May 2026\n",
 "messages.csv": "\"CONVERSATION ID\",\"CONVERSATION TITLE\",\"FROM\",\"SENDER PROFILE URL\",\"TO\",\"RECIPIENT PROFILE URLS\",\"DATE\",\"SUBJECT\",\"CONTENT\",\"FOLDER\"\n"
   f"c1,,Max Sample,{ME},Erika Example,https://www.linkedin.com/in/erika-example,2026-10-08 10:00:00 UTC,,Could I interview you for my thesis?,INBOX\n"
-  f"c2,,Max Sample,{ME},Paul Probe,https://www.linkedin.com/in/paul-probe,2026-10-09 10:00:00 UTC,,Dear Mr Probe, would you have time for an interview?,INBOX\n"
+  f"c2,,Max Sample,{ME},Paul Probe,https://www.linkedin.com/in/paul-probe,2026-10-09 10:00:00 UTC,,\"Dear Mr Probe, would you have time for an interview?\",INBOX\n"
   f"c2,,Paul Probe,https://www.linkedin.com/in/paul-probe,Max Sample,{ME},2026-10-10 10:00:00 UTC,,Happy to!,INBOX\n"
   f"c3,,Rita Recruiter,https://www.linkedin.com/in/rita-recruiter,Max Sample,{ME},2026-11-16 10:00:00 UTC,,We're looking for a Sales Development Representative,INBOX\n",
 "Invitations.csv": f"From,To,Sent At,Message,Direction,inviterProfileUrl,inviteeProfileUrl\nMax Sample,Erika Example,\"10/1/26, 1:00 PM\",,OUTGOING,{ME},https://www.linkedin.com/in/erika-example\n",

@@ -44,13 +44,15 @@ TODAY = dt.date.today().isoformat()
 DEFAULT_SECTORS = [
     ["Military & Security", r"bundesheer|bundeswehr|armed forces|army|armee|defen[cs]e|militär|military|polizei|police|\bmiliz"],
     ["Diplomacy & Trade", r"advantage austria|embassy|botschaft|konsulat|consulate|ambassador|diplomat|\bMFA\b|auswärtig|foreign (office|affairs)|state department|united nations|permanent mission|council of europe|conseil de l|\bOSCE\b|\bOSZE\b|trade commission|wirtschaftsdeleg|commercial (attach|counsel)"],
-    ["Politics & Government", r"parlament|parliament|congress|senate|bundestag|nationalrat|ministerium|ministry|kanzleramt|regierung|landesrat|partei|\bparty\b|\bpolitic|politik|gemeinderat|city council|bezirk|magistrat|\brepublik|staatssekret|minister|abgeordnet|government|european commission|wirtschaftskammer|chamber of commerce|\bWKO\b|\bIHK\b|industriellenverein|verband|association"],
+    ["Politics & Government", r"parlament|parliament|congress|senate|bundestag|nationalrat|ministerium|ministry|kanzleramt|regierung|landesrat|partei|\bparty\b|\bpolitic|politik|gemeinderat|city council|bezirk|magistrat|\brepublik|staatssekret|minister|abgeordnet|government|european commission|wirtschaftskammer|chamber of commerce|\bWKO\b|\bIHK\b|industriellenverein|verband|association"
+     r"|bürgermeister|stadtrat|stadträtin|landeshauptmann|landesregierung|magistrat|stadt wien|senat\b|\bÖH\b|hochschüler|studierendenvertretung"
+     r"|\bNEOS\b|JUNOS|volkspartei|\bÖVP\b|\bSPÖ\b|\bFPÖ\b|\bGrüne|\bCDU\b|\bCSU\b|\bSPD\b|\bFDP\b|\bAfD\b|\bSVP\b|\bFDP\.|bauernbund|youth convention"],
     ["Law", r"anwalt|rechtsanw|\blaw\b|legal|notar|jurist|kanzlei|attorney|counsel\b"],
     ["Finance & Consulting", r"bank|goldman|\bEY\b|KPMG|PwC|deloitte|mckinsey|\bBCG\b|\bbain\b|capital|financ|treuhand|steuer|\btax\b|invest|fonds|\bfund|audit|revision|consult|advisory|asset manag|leasing|wealth|M&A|versicher|insurance"],
     ["Academia & Research", r"universit|\bWU\b|institut|research|forschung|hochschule|professor|\bETH\b|college|academy of|phd|doktorand"],
     ["Media & Communications", r"media|medien|zeitung|newspaper|presse|press\b|journal|redakt|editor|podcast|verlag|publish|marketing|\bPR\b|kommunikation|communication|\bBBC\b|\bCNN\b|\bORF\b|\bARD\b|\bZDF\b|\bSRF\b"],
     ["Schools & Education", r"schule|gymnas|lycée|lycee|school|bildung|education|akademie|tutor|nachhilfe|teacher|lehrer"],
-    ["Real Estate & Construction", r"immobil|real estate|realit|property|\bbau|construction|architekt|architect|interiors|hausverwalt"],
+    ["Real Estate & Construction", r"immobil|real estate|realit|property|\bbau(?!ern)|construction|architekt|architect|interiors|hausverwalt"],
     ["Health & Medicine", r"medic|medizin|ordination|\barzt|ärzt|physician|doctor|klinik|clinic|hospital|spital|pharma|dr\. ?med|psychiatr|rotes kreuz|red cross|pflege|nurse"],
     ["Sports", r"sport|athlet|football|fußball|soccer|basketball|olymp|übungsleiter|\bcoach"],
     ["Tech & IT", r"software|\btech|\bIT\b|\bAWS\b|amazon|google|microsoft|developer|engineer|\bAI\b|\bKI\b|data|cloud|digital"],
@@ -62,6 +64,10 @@ DEFAULT_MESSAGE_TOPICS = [
     ["Interview request", r"\binterview\b"],
     ["Internship", r"praktikum|internship|werkstudent|working student"],
 ]
+DEFAULT_MESSAGE_TOPICS_DE = [["Recruiting", DEFAULT_MESSAGE_TOPICS[0][1]], ["Interviewanfrage", DEFAULT_MESSAGE_TOPICS[1][1]],
+                             ["Praktikum", DEFAULT_MESSAGE_TOPICS[2][1]]]
+# A third element links a message topic to a vault topic, e.g. ["Thesis interview", "\\bthesis\\b", "Thesis"]:
+# everyone you wrote to about it gets that topic, whatever their job title says.
 
 
 # Language of the generated notes ("language" in topics.json). File paths can be overridden with "paths".
@@ -250,7 +256,7 @@ def main():
     names_map = {**(SECTORS_DE if lang == "de" else {}), **(cfg.get("sector_names") or {})}
     sectors = cfg.get("sectors") or [[names_map.get(n, n), rx] for n, rx in DEFAULT_SECTORS]
     topics = cfg.get("topics", [])
-    msg_topics = cfg.get("message_topics") or DEFAULT_MESSAGE_TOPICS
+    msg_topics = cfg.get("message_topics") or (DEFAULT_MESSAGE_TOPICS_DE if cfg.get("language") == "de" else DEFAULT_MESSAGE_TOPICS)
     exclude = {x.lower() for x in a.exclude_lastname + cfg.get("exclude_lastnames", [])}
     excl_sectors = set(cfg.get("exclude_sectors", []))
     excl_people = {x.lower() for x in cfg.get("exclude_people", [])}
@@ -358,7 +364,9 @@ def main():
     for ms in conv.values():
         ms.sort(key=lambda m: m["DATE"])
         text = " ".join((m.get("CONTENT") or "") + " " + (m.get("SUBJECT") or "") for m in ms)
-        tp = next((n for n, rx in msg_topics if re.search(rx, text, re.I)), None)
+        hit_t = next((t for t in msg_topics if re.search(t[1], text, re.I)), None)
+        tp = hit_t[0] if hit_t else None
+        link_topic = hit_t[2] if hit_t and len(hit_t) > 2 else None
         mine = lambda m: norm_url(m["SENDER PROFILE URL"]) == me
         info = dict(n=len(ms), first=ms[0]["DATE"][:10], last=ms[-1]["DATE"][:10], tp=tp, by_me=mine(ms[0]),
                     answered=any(not mine(m) for m in ms) if mine(ms[0]) else any(mine(m) for m in ms))
@@ -371,7 +379,10 @@ def main():
         for u, n in others.items():
             if u in by_norm:
                 by_norm[u]["convs"].append(info)
-            elif tp == "Recruiting" and not info["by_me"]:
+                lt = tby.get(link_topic)
+                if lt and lt not in by_norm[u]["topics"]:
+                    by_norm[u]["topics"].insert(0, lt)
+            elif hit_t and hit_t[0] == msg_topics[0][0] and not info["by_me"]:   # first message topic = recruiting
                 recruiters.append((n, info))
 
     def conv_line(i):
