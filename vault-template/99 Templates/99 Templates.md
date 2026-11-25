@@ -1,18 +1,18 @@
 ---
 type: moc
-status: aktiv
+status: active
 tags: [moc]
 created: {{date}}
 ---
 # 99 Templates
 
-Vorlagen für neue Notizen (Obsidian: Kernplugin „Vorlagen“, Ordner `99 Templates`).
+Templates for new notes (Obsidian core plugin “Templates”, folder `99 Templates`).
 
-- [[Vorlage Projekt]]
-- [[Vorlage Fach-Notiz]] (für Schule oder Studium)
-- [[Vorlage Lernzusammenfassung]]
-- [[Vorlage Interview]]
-- [[Vorlage Person]]
-- [[Vorlage LinkedIn-Post-Idee]]
-- [[Vorlage Weekly Review]]
-- [[Vorlage Idee]]
+- [[Template Project]]
+- [[Template Course Note]] (school or university)
+- [[Template Study Summary]]
+- [[Template Interview]]
+- [[Template Person]]
+- [[Template LinkedIn Post Idea]]
+- [[Template Weekly Review]]
+- [[Template Idea]]

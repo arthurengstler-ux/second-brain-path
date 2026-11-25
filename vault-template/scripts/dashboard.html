@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -57,9 +57,9 @@ aside{border-left:1px solid var(--line);background:var(--panel);display:flex;fle
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .muted{color:var(--muted);font-size:12px}
 .pill{font-size:11px;border-radius:999px;padding:1px 8px;background:var(--soft)}
-.pill.aktiv{background:color-mix(in srgb,var(--c-proj) 18%,transparent);color:var(--c-proj)}
-.pill.geplant{background:color-mix(in srgb,var(--c-inbox) 18%,transparent);color:var(--c-inbox)}
-.pill.abgeschlossen{color:var(--muted)}
+.pill.active{background:color-mix(in srgb,var(--c-proj) 18%,transparent);color:var(--c-proj)}
+.pill.planned{background:color-mix(in srgb,var(--c-inbox) 18%,transparent);color:var(--c-inbox)}
+.pill.done{color:var(--muted)}
 select.st,input.f{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:3px 6px;font-size:12px}
 input.f{width:100%}
 .bar{height:5px;background:var(--soft);border-radius:3px;overflow:hidden;flex:1}
@@ -103,18 +103,18 @@ textarea,input.t{width:100%;border:1px solid var(--line);border-radius:8px;paddi
   <header>
     <h1>Second Brain</h1>
     <div class="live"><span class="dot" id="liveDot"></span><span id="liveTxt"></span></div>
-    <input class="search" id="search" placeholder="Notiz suchen …">
+    <input class="search" id="search" placeholder="Search notes …">
     <div class="chips" id="chips"></div>
     <div class="stats" id="stats"></div>
   </header>
   <div class="stage" id="stage">
     <canvas id="cv"></canvas>
-    <div class="banner" id="banner" hidden>Nur-Lesen-Ansicht. Zum Steuern <b>Brain.command</b> doppelklicken.</div>
+    <div class="banner" id="banner" hidden>Read-only view. Run <b>python3 scripts/brain.py serve</b> for controls.</div>
     <div class="legend">
-      <span><i class="ring" style="background:var(--muted)"></i>aktiv</span>
-      <span><i class="ring"></i>geplant</span>
-      <span><i class="ring" style="border-style:dashed"></i>Idee</span>
-      <span><i class="ring" style="opacity:.35;background:var(--muted)"></i>abgeschlossen</span>
+      <span><i class="ring" style="background:var(--muted)"></i>active</span>
+      <span><i class="ring"></i>planned</span>
+      <span><i class="ring" style="border-style:dashed"></i>idea</span>
+      <span><i class="ring" style="opacity:.35;background:var(--muted)"></i>done</span>
       <span><i class="ring" style="border-color:var(--warn)"></i>Claude &lt; 24 h</span>
     </div>
   </div>
@@ -135,15 +135,15 @@ let DATA = /*__DATA__*/null;
 const LIVE = /*__LIVE__*/false;
 const AREAS = {
   "Home":{c:"--c-home",label:"Home"}, "00 Inbox":{c:"--c-inbox",label:"Inbox"},
-  "01 Projects":{c:"--c-proj",label:"Projekte"}, "02 Areas":{c:"--c-area",label:"Bereiche"},
-  "03 Resources":{c:"--c-res",label:"Ressourcen"}, "04 Archive":{c:"--c-arch",label:"Archiv"},
-  "05 People":{c:"--c-ppl",label:"Personen"}, "99 Templates":{c:"--c-tpl",label:"Vorlagen"}
+  "01 Projects":{c:"--c-proj",label:"Projects"}, "02 Areas":{c:"--c-area",label:"Areas"},
+  "03 Resources":{c:"--c-res",label:"Resources"}, "04 Archive":{c:"--c-arch",label:"Archive"},
+  "05 People":{c:"--c-ppl",label:"People"}, "99 Templates":{c:"--c-tpl",label:"Templates"}
 };
 const hidden = new Set(["99 Templates"]);
 const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-let tab = "projekte", selected = null, hover = null, query = "";
+let tab = "projects", selected = null, hover = null, query = "";
 
 // ---------------------------------------------------------------- Graph-Modell
 let nodes = [], edges = [], byId = {}, nbrs = {};
@@ -160,7 +160,7 @@ function ingest(d){
   edges.forEach(e => { nbrs[e.source].add(e.target); nbrs[e.target].add(e.source); });
   nodes.forEach(n => {
     n.deg = nbrs[n.id].size;
-    n.isHub = n.type === "moc" || n.type === "projekt" || n.type === "dashboard";
+    n.isHub = n.type === "moc" || n.type === "project" || n.type === "dashboard";
     n.recent = lastActivity(n.id) && (Date.now() - lastActivity(n.id)) < 864e5;
   });
   heat = 1;
@@ -240,17 +240,17 @@ function draw(){
     const col = css(AREAS[n.area]?.c || "--muted"), r = radius(n);
     let alpha = lit ? (lit.has(n.id)?1:0.15) : 1;
     if (query) alpha = matches(n) ? 1 : 0.12;
-    if (n.status === "abgeschlossen") alpha *= 0.45;
+    if (n.status === "done") alpha *= 0.45;
     ctx.globalAlpha = alpha;
     if (n.recent){
       ctx.strokeStyle = warn; ctx.lineWidth = 2/view.k;
       ctx.beginPath(); ctx.arc(n.x,n.y,r+4+Math.sin(t*3)*1.5,0,7); ctx.stroke();
     }
     ctx.beginPath(); ctx.arc(n.x,n.y,r,0,7);
-    if (n.status === "geplant" || n.status === "Idee"){
+    if (n.status === "planned" || n.status === "idea"){
       ctx.fillStyle = css("--panel"); ctx.fill();
       ctx.strokeStyle = col; ctx.lineWidth = 2/view.k;
-      if (n.status === "Idee") ctx.setLineDash([3/view.k,3/view.k]);
+      if (n.status === "idea") ctx.setLineDash([3/view.k,3/view.k]);
       ctx.stroke(); ctx.setLineDash([]);
     } else { ctx.fillStyle = col; ctx.fill(); }
     if (n.id === selected){ ctx.strokeStyle = ink; ctx.lineWidth = 2.5/view.k; ctx.beginPath(); ctx.arc(n.x,n.y,r+3,0,7); ctx.stroke(); }
@@ -260,7 +260,7 @@ function draw(){
       labels.push({n, r, alpha, prio});
     }
   });
-  // Beschriftungen ohne Überlappung: wichtigste zuerst, verdeckte weglassen
+  // labels without overlap: most important first, skip hidden ones
   labels.sort((a,b)=>b.prio-a.prio);
   const placed = [];
   labels.forEach(({n,r,alpha}) => {
@@ -323,38 +323,38 @@ function lastActivity(id){
 }
 function rel(ts){
   const s = (Date.now()-ts)/1000;
-  if (s < 60) return "gerade eben"; if (s < 3600) return `vor ${Math.round(s/60)} Min.`;
-  if (s < 86400) return `vor ${Math.round(s/3600)} Std.`; const d=Math.round(s/86400); return d===1?"gestern":`vor ${d} Tagen`;
+  if (s < 60) return "just now"; if (s < 3600) return `${Math.round(s/60)} min ago`;
+  if (s < 86400) return `${Math.round(s/3600)} h ago`; const d=Math.round(s/86400); return d===1?"yesterday":`${d} days ago`;
 }
-const MONTHS = ["Jän","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 function parseDeadline(s){
   if(!s) return null; const m = String(s).match(/^(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?/); if(!m) return null;
   const y=+m[1], mo=m[2]?+m[2]:null, d=m[3]?+m[3]:null;
   const date = new Date(y, (mo||12)-1, d || (mo ? new Date(y,mo,0).getDate() : 31));
-  const label = d ? `${String(d).padStart(2,"0")}.${String(mo).padStart(2,"0")}.${y}` : mo ? `${MONTHS[mo-1]} ${y}` : `${y}`;
+  const label = d ? `${y}-${String(mo).padStart(2,"0")}-${String(d).padStart(2,"0")}` : mo ? `${MONTHS[mo-1]} ${y}` : `${y}`;
   return {date,label,precision:d?3:mo?2:1};
 }
 function toast(msg){ const t=$("toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),1600); }
 async function api(path, body){
-  if(!LIVE) return toast("Nur-Lesen: Brain.command starten");
+  if(!LIVE) return toast("Read-only: run brain.py serve");
   const r = await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
-  const j = await r.json(); if(!r.ok){ toast("Fehler: "+(j.error||r.status)); return null; }
+  const j = await r.json(); if(!r.ok){ toast("Error: "+(j.error||r.status)); return null; }
   await refresh(true); return j;
 }
 const dis = LIVE ? "" : "disabled";
 function statusSelect(n){
-  return `<select class="st" ${dis} onchange="api('/api/set',{path:${JSON.stringify(n.path).replace(/"/g,"&quot;")},key:'status',value:this.value}).then(()=>toast('Status gespeichert'))">
+  return `<select class="st" ${dis} onchange="api('/api/set',{path:${JSON.stringify(n.path).replace(/"/g,"&quot;")},key:'status',value:this.value}).then(()=>toast('Status saved'))">
     ${["", ...DATA.statuses].map(s=>`<option ${s===n.status?"selected":""} value="${s}">${s||"–"}</option>`).join("")}</select>`;
 }
 function field(n,key,val,ph){
-  return `<input class="f" ${dis} value="${esc(val)}" placeholder="${ph}" onchange="api('/api/set',{path:${esc(JSON.stringify(n.path))},key:'${key}',value:this.value}).then(()=>toast('Gespeichert'))">`;
+  return `<input class="f" ${dis} value="${esc(val)}" placeholder="${ph}" onchange="api('/api/set',{path:${esc(JSON.stringify(n.path))},key:'${key}',value:this.value}).then(()=>toast('Saved'))">`;
 }
-function projects(){ return nodes.filter(n => n.area==="01 Projects" && n.path.split("/").length===3 && n.type==="projekt"); }
+function projects(){ return nodes.filter(n => n.area==="01 Projects" && n.path.split("/").length===3 && n.type==="project"); }
 
 // ---------------------------------------------------------------- Seitenleiste
-const TABS = [["projekte","Projekte"],["fristen","Fristen"],["offen","Offen"],["claude","Claude"],["inbox","Inbox"]];
+const TABS = [["projects","Projects"],["deadlines","Deadlines"],["open","Open"],["claude","Claude"],["inbox","Inbox"]];
 function renderTabs(){
-  const counts = {offen: nodes.reduce((a,n)=>a+n.todos.length+n.checks.filter(c=>!c.done).length,0),
+  const counts = {open: nodes.reduce((a,n)=>a+n.todos.length+n.checks.filter(c=>!c.done).length,0),
                   inbox: nodes.filter(n=>n.area==="00 Inbox" && n.type!=="moc").length,
                   claude: (DATA.activity||[]).filter(r=>Date.now()-new Date(r.ts)<7*864e5).length};
   $("tabs").innerHTML = TABS.map(([k,l]) => `<button class="tab ${tab===k?"on":""}" onclick="tab='${k}';renderSide()">${l}${counts[k]?`<span class="n">${counts[k]}</span>`:""}</button>`).join("");
@@ -362,8 +362,8 @@ function renderTabs(){
 function renderSide(){
   renderTabs();
   const p = $("pane");
-  if (tab==="projekte"){
-    p.innerHTML = projects().sort((a,b)=>(a.status==="aktiv"?0:1)-(b.status==="aktiv"?0:1)).map(n => {
+  if (tab==="projects"){
+    p.innerHTML = projects().sort((a,b)=>(a.status==="active"?0:1)-(b.status==="active"?0:1)).map(n => {
       const sub = nodes.filter(m => m.project===n.id);
       const all = sub.flatMap(m=>m.checks), done = all.filter(c=>c.done).length;
       const todo = sub.reduce((a,m)=>a+m.todos.length,0);
@@ -371,30 +371,30 @@ function renderSide(){
       return `<div class="card">
         <div class="row" style="justify-content:space-between"><h3 onclick="select('${esc(n.id)}')">${esc(n.id)}</h3>${statusSelect(n)}</div>
         <div class="row muted" style="margin-bottom:8px">
-          ${dl?`<span>Frist: <b style="color:var(--ink)">${dl.label}</b></span>`:""}
+          ${dl?`<span>Deadline: <b style="color:var(--ink)">${dl.label}</b></span>`:""}
           ${la?`<span>· Claude ${rel(la)}</span>`:""}
-          ${todo?`<span>· ${todo} zu ergänzen</span>`:""}
+          ${todo?`<span>· ${todo} to fill in</span>`:""}
         </div>
-        ${field(n,"next_step",n.next,"Nächster Schritt …")}
+        ${field(n,"next_step",n.next,"Next step …")}
         ${all.length?`<div class="row" style="margin-top:8px"><div class="bar"><i style="width:${Math.round(done/all.length*100)}%"></i></div><span class="muted">${done}/${all.length}</span></div>`:""}
       </div>`; }).join("");
   }
-  if (tab==="fristen"){
+  if (tab==="deadlines"){
     const now = new Date();
     const list = nodes.filter(n=>n.deadline && !n.template).map(n=>({n,d:parseDeadline(n.deadline)})).filter(x=>x.d).sort((a,b)=>a.d.date-b.d.date);
-    p.innerHTML = `<h4>Nach Datum</h4>` + list.map(({n,d}) => {
+    p.innerHTML = `<h4>By date</h4>` + list.map(({n,d}) => {
       const days = Math.round((d.date-now)/864e5);
       return `<div class="item"><div class="when ${days<45&&days>=0?"soon":""}">${d.label}</div>
         <div style="flex:1"><a class="link" onclick="select('${esc(n.id)}')">${esc(n.id)}</a>
-        <div class="muted">${esc(n.next||"")}${days>=0?` · noch ${days} Tage${d.precision<3?" (spätestens)":""}`:" · vorbei"}</div></div>
+        <div class="muted">${esc(n.next||"")}${days>=0?` · ${days} days left${d.precision<3?" (at the latest)":""}`:" · passed"}</div></div>
         <span class="pill ${n.status}">${n.status}</span></div>`; }).join("")
-      + `<p class="muted" style="margin-top:14px">Frist ändern: Notiz anklicken und Feld „Frist“ setzen (Format 2027-06 oder 2027-06-15).</p>`;
+      + `<p class="muted" style="margin-top:14px">To change a deadline: click the note and set the “Deadline” field (format 2027-06 or 2027-06-15).</p>`;
   }
-  if (tab==="offen"){
+  if (tab==="open"){
     const groups = nodes.filter(n => !n.template && (n.todos.length || n.checks.some(c=>!c.done)));
     p.innerHTML = groups.map(n => `<h4><a class="link" onclick="select('${esc(n.id)}')">${esc(n.id)}</a></h4>` +
-      n.todos.map(t=>`<div class="item" style="padding:5px 0"><span class="pill geplant">ergänzen</span><span style="flex:1;font-size:13px">${esc(t.text)}</span></div>`).join("") +
-      n.checks.filter(c=>!c.done).map(c=>checkbox(n,c)).join("")).join("") || `<p class="muted">Nichts offen.</p>`;
+      n.todos.map(t=>`<div class="item" style="padding:5px 0"><span class="pill planned">to fill in</span><span style="flex:1;font-size:13px">${esc(t.text)}</span></div>`).join("") +
+      n.checks.filter(c=>!c.done).map(c=>checkbox(n,c)).join("")).join("") || `<p class="muted">Nothing open.</p>`;
   }
   if (tab==="claude"){
     const rows = (DATA.activity||[]).slice().reverse();
@@ -402,20 +402,20 @@ function renderSide(){
     const per = days.map(d => rows.filter(r=>{const t=new Date(r.ts); return t>=d && t<new Date(d.getTime()+864e5);}).length);
     const max = Math.max(1,...per);
     const byProj = {}; rows.forEach(r=>{ byProj[r.project]=(byProj[r.project]||0)+1; });
-    p.innerHTML = `<h4>Letzte 14 Tage</h4><div class="heat">${per.map(v=>`<i style="height:${v/max*100}%" title="${v}"></i>`).join("")}</div>
-      <div class="row muted" style="justify-content:space-between"><span>${days[0].getDate()}.${days[0].getMonth()+1}.</span><span>heute</span></div>
-      <h4>Nach Projekt</h4><div class="row">${Object.entries(byProj).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<span class="chip" onclick="byId['${esc(k)}']&&select('${esc(k)}')">${esc(k)} · ${v}</span>`).join("")||'<span class="muted">Noch keine Aktivität. Sobald Claude Code eine Datei ändert, erscheint sie hier.</span>'}</div>
-      <h4>Verlauf</h4>` + rows.slice(0,80).map(r=>`<div class="item"><div class="when" style="font-weight:400" title="${esc(r.ts)}">${rel(new Date(r.ts).getTime())}</div>
+    p.innerHTML = `<h4>Last 14 days</h4><div class="heat">${per.map(v=>`<i style="height:${v/max*100}%" title="${v}"></i>`).join("")}</div>
+      <div class="row muted" style="justify-content:space-between"><span>${days[0].getDate()}.${days[0].getMonth()+1}.</span><span>today</span></div>
+      <h4>By project</h4><div class="row">${Object.entries(byProj).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<span class="chip" onclick="byId['${esc(k)}']&&select('${esc(k)}')">${esc(k)} · ${v}</span>`).join("")||'<span class="muted">No activity yet. As soon as Claude Code changes a file, it shows up here.</span>'}</div>
+      <h4>History</h4>` + rows.slice(0,80).map(r=>`<div class="item"><div class="when" style="font-weight:400" title="${esc(r.ts)}">${rel(new Date(r.ts).getTime())}</div>
         <div style="flex:1;min-width:0"><b>${byId[r.project]?`<a class="link" onclick="select('${esc(r.project)}')">${esc(r.project)}</a>`:esc(r.project)}</b>
         <div class="muted" style="overflow-wrap:anywhere">${esc(r.text || r.file.replace(/^\/Users\/[^/]+/,"~"))}</div></div></div>`).join("");
   }
   if (tab==="inbox"){
     const items = nodes.filter(n=>n.area==="00 Inbox" && n.type!=="moc");
-    p.innerHTML = `<h4>Schnell notieren</h4>
-      <input class="t" id="inTitle" placeholder="Titel" ${dis}>
-      <textarea id="inText" rows="5" placeholder="Gedanke, Link, Aufgabe …" style="margin-top:8px" ${dis}></textarea>
-      <div class="row" style="margin-top:8px"><button class="btn" ${dis} onclick="addInbox()">In Inbox legen</button></div>
-      <h4>In der Inbox (${items.length})</h4>` + (items.map(n=>`<div class="item"><a class="link" onclick="select('${esc(n.id)}')">${esc(n.id)}</a><span class="muted" style="flex:1">${esc(n.summary.slice(0,80))}</span></div>`).join("") || `<p class="muted">Leer.</p>`);
+    p.innerHTML = `<h4>Quick capture</h4>
+      <input class="t" id="inTitle" placeholder="Title" ${dis}>
+      <textarea id="inText" rows="5" placeholder="Thought, link, task …" style="margin-top:8px" ${dis}></textarea>
+      <div class="row" style="margin-top:8px"><button class="btn" ${dis} onclick="addInbox()">Add to inbox</button></div>
+      <h4>In the inbox (${items.length})</h4>` + (items.map(n=>`<div class="item"><a class="link" onclick="select('${esc(n.id)}')">${esc(n.id)}</a><span class="muted" style="flex:1">${esc(n.summary.slice(0,80))}</span></div>`).join("") || `<p class="muted">Empty.</p>`);
   }
   renderStats();
 }
@@ -425,13 +425,13 @@ function checkbox(n,c){
 }
 async function addInbox(){
   const title=$("inTitle").value, text=$("inText").value; if(!title && !text) return;
-  const r = await api("/api/inbox",{title,text}); if(r){ toast("In Inbox gelegt"); }
+  const r = await api("/api/inbox",{title,text}); if(r){ toast("Added to inbox"); }
 }
 function renderStats(){
-  const act = projects().filter(n=>n.status==="aktiv").length;
+  const act = projects().filter(n=>n.status==="active").length;
   const open = nodes.reduce((a,n)=>a+n.todos.length,0);
   const next = nodes.filter(n=>n.deadline).map(n=>parseDeadline(n.deadline)).filter(d=>d&&d.date>new Date()).sort((a,b)=>a.date-b.date)[0];
-  $("stats").innerHTML = `<div><b>${nodes.filter(visible).length}</b>Notizen</div><div><b>${act}</b>aktive Projekte</div><div><b>${open}</b>zu ergänzen</div>${next?`<div><b>${next.label}</b>nächste Frist</div>`:""}`;
+  $("stats").innerHTML = `<div><b>${nodes.filter(visible).length}</b>notes</div><div><b>${act}</b>active projects</div><div><b>${open}</b>to fill in</div>${next?`<div><b>${next.label}</b>next deadline</div>`:""}`;
 }
 function renderChips(){
   $("chips").innerHTML = Object.entries(AREAS).filter(([k])=>k!=="Home").map(([k,v]) =>
@@ -452,37 +452,37 @@ function select(id){
     <h2 style="margin:4px 0 0;font-size:19px">${esc(n.id)}</h2>
     <div class="kv">
       <span>Status</span>${statusSelect(n)}
-      <span>Frist</span>${field(n,"deadline",n.deadline,"z. B. 2027-06")}
-      <span>Nächster Schritt</span>${field(n,"next_step",n.next,"…")}
+      <span>Deadline</span>${field(n,"deadline",n.deadline,"e.g. 2027-06")}
+      <span>Next step</span>${field(n,"next_step",n.next,"…")}
     </div>
-    <div class="row"><button class="btn" onclick="openObsidian(byId['${esc(n.id)}'])">Notiz öffnen</button><span class="muted">oder Doppelklick im Graphen</span></div>
+    <div class="row"><button class="btn" onclick="openObsidian(byId['${esc(n.id)}'])">Open note</button><span class="muted">or double-click in the graph</span></div>
     ${n.summary?`<div class="summary">${esc(n.summary)}</div>`:""}
     ${docsBlock(n)}
-    ${n.todos.length?`<h4>Zu ergänzen</h4>`+n.todos.map(t=>`<div class="muted" style="padding:3px 0">• ${esc(t.text)}</div>`).join(""):""}
-    ${n.checks.length?`<h4>Aufgaben</h4>`+n.checks.map(c=>checkbox(n,c)).join(""):""}
-    <h4>Verlauf-Eintrag</h4>
-    <div class="row"><input class="t" id="logIn" placeholder="Was ist passiert?" style="flex:1" ${dis}><button class="btn ghost" ${dis} onclick="addLog('${esc(n.path)}')">+</button></div>
-    ${acts.length?`<h4>Claude zuletzt</h4>`+acts.map(r=>`<div class="muted" style="padding:2px 0">${rel(new Date(r.ts).getTime())} · ${esc(r.text||r.file.split("/").pop())}</div>`).join(""):""}
-    ${out.length?`<h4>Verlinkt</h4><div class="row">`+out.map(l=>`<span class="chip" onclick="select('${esc(l)}')"><i style="background:var(${AREAS[byId[l].area].c})"></i>${esc(l)}</span>`).join("")+"</div>":""}
-    ${back.length?`<h4>Erwähnt in</h4><div class="row">`+back.map(l=>`<span class="chip" onclick="select('${esc(l)}')"><i style="background:var(${AREAS[byId[l].area].c})"></i>${esc(l)}</span>`).join("")+"</div>":""}`;
+    ${n.todos.length?`<h4>To fill in</h4>`+n.todos.map(t=>`<div class="muted" style="padding:3px 0">• ${esc(t.text)}</div>`).join(""):""}
+    ${n.checks.length?`<h4>Tasks</h4>`+n.checks.map(c=>checkbox(n,c)).join(""):""}
+    <h4>Log entry</h4>
+    <div class="row"><input class="t" id="logIn" placeholder="What happened?" style="flex:1" ${dis}><button class="btn ghost" ${dis} onclick="addLog('${esc(n.path)}')">+</button></div>
+    ${acts.length?`<h4>Claude recently</h4>`+acts.map(r=>`<div class="muted" style="padding:2px 0">${rel(new Date(r.ts).getTime())} · ${esc(r.text||r.file.split("/").pop())}</div>`).join(""):""}
+    ${out.length?`<h4>Links to</h4><div class="row">`+out.map(l=>`<span class="chip" onclick="select('${esc(l)}')"><i style="background:var(${AREAS[byId[l].area].c})"></i>${esc(l)}</span>`).join("")+"</div>":""}
+    ${back.length?`<h4>Mentioned in</h4><div class="row">`+back.map(l=>`<span class="chip" onclick="select('${esc(l)}')"><i style="background:var(${AREAS[byId[l].area].c})"></i>${esc(l)}</span>`).join("")+"</div>":""}`;
   d.classList.add("open"); d.scrollTop = 0;
 }
 function docsBlock(n){
   const all = ((DATA.docs||{})[n.id]||[]).filter(d=>!d.backup);
   if(!all.length) return "";
   const icon = f => ({pdf:"PDF",docx:"DOC",doc:"DOC",xlsx:"XLS",pptx:"PPT",html:"WEB",mp4:"VID",wav:"AUD",md:"MD"})[f.split(".").pop().toLowerCase()]||"DAT";
-  return `<h4>Dokumente (${all.length})</h4>` + all.slice(0,25).map(d=>`<div class="item" style="padding:5px 0">
+  return `<h4>Documents (${all.length})</h4>` + all.slice(0,25).map(d=>`<div class="item" style="padding:5px 0">
       <span class="pill">${icon(d.name)}</span>
       <a class="link" style="flex:1;overflow-wrap:anywhere" title="${esc(d.dir)}" onclick='openDoc(${esc(JSON.stringify(d.path))})'>${esc(d.name)}</a>
-      <span class="muted">${new Date(d.mtime*1000).toLocaleDateString("de-AT")}</span></div>`).join("")
-    + (all.length>25?`<div class="muted">… und ${all.length-25} weitere in der Notiz „Dokumente ${esc(n.id)}“</div>`:"");
+      <span class="muted">${new Date(d.mtime*1000).toLocaleDateString()}</span></div>`).join("")
+    + (all.length>25?`<div class="muted">… and ${all.length-25} more in the note “Documents ${esc(n.id)}”</div>`:"");
 }
 async function openDoc(path){
-  if(!LIVE) return toast("Nur-Lesen: Brain.command starten");
+  if(!LIVE) return toast("Read-only: run brain.py serve");
   const r = await fetch("/api/open",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({path})});
-  toast(r.ok ? "Wird geöffnet …" : "Konnte Datei nicht öffnen");
+  toast(r.ok ? "Opening …" : "Could not open file");
 }
-async function addLog(path){ const t=$("logIn").value.trim(); if(!t) return; if(await api("/api/log",{path,text:t})) toast("Eingetragen"); }
+async function addLog(path){ const t=$("logIn").value.trim(); if(!t) return; if(await api("/api/log",{path,text:t})) toast("Logged"); }
 
 // ---------------------------------------------------------------- Live
 async function refresh(force){
@@ -497,13 +497,13 @@ async function refresh(force){
     if(!force && active && /INPUT|TEXTAREA|SELECT/.test(active.tagName)) return;
     ingest(await (await fetch("/api/graph")).json());
     renderSide(); if(selected) select(byId[selected]?selected:null);
-  }catch(e){ $("liveDot").classList.add("off"); $("liveTxt").textContent = "Server aus"; }
+  }catch(e){ $("liveDot").classList.add("off"); $("liveTxt").textContent = "server off"; }
 }
 ingest(DATA);
 for (let i=0;i<500;i++) tick();
 resize(); renderChips(); renderSide(); requestAnimationFrame(draw);
 if(LIVE){ $("liveTxt").textContent="live"; setInterval(refresh, 2500); }
-else { $("liveDot").classList.add("off"); $("liveTxt").textContent = "Stand " + DATA.generated; $("banner").hidden=false; }
+else { $("liveDot").classList.add("off"); $("liveTxt").textContent = "as of " + DATA.generated; $("banner").hidden=false; }
 </script>
 </body>
 </html>

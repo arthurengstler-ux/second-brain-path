@@ -1,16 +1,15 @@
 ---
 type: person
-status: geplant
+status: planned
 tags: [person]
 created: {{date}}
 ---
 
 # {{title}}
 
-**Rolle:** 
+**Role:** 
 
-## Projekte
+## Projects
 - [[]]
 
-## Notizen
-
+## Notes

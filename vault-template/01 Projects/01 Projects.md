@@ -1,13 +1,13 @@
 ---
 type: moc
-status: aktiv
+status: active
 tags: [moc]
 created: {{date}}
 ---
 # 01 Projects
 
-Aktive Vorhaben mit Ziel und Frist. Jedes Projekt bekommt einen Ordner mit gleichnamiger Notiz (Vorlage [[Vorlage Projekt]]).
+Active efforts with a goal and a deadline. Each project gets a folder with a note of the same name (template [[Template Project]]).
 
-<!-- Liste der Projekte, z. B.
-- [[Abschlussarbeit]]
+<!-- List your projects, e.g.
+- [[Thesis]]
 -->

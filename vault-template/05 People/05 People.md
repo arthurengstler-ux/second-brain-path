@@ -1,14 +1,14 @@
 ---
 type: moc
-status: aktiv
+status: active
 tags: [moc]
 created: {{date}}
 ---
 # 05 People
 
-Personen. Zu welchem Thema wen fragen: [[Wen fragen]]
+People. Who to ask about what: [[Who to Ask]]
 
-## Persönlich bekannt / aus Projekten
+## Known personally / from projects
 
 <!-- linkedin:start -->
 <!-- linkedin:end -->

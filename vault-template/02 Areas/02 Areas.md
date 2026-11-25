@@ -1,11 +1,11 @@
 ---
 type: moc
-status: aktiv
+status: active
 tags: [moc]
 created: {{date}}
 ---
 # 02 Areas
 
-Dauerhafte Verantwortungsbereiche ohne Enddatum.
+Ongoing areas of responsibility without an end date.
 
-- [[Karriere]]
+- [[Career]]

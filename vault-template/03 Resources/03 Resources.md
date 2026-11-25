@@ -1,9 +1,9 @@
 ---
 type: moc
-status: aktiv
+status: active
 tags: [moc]
 created: {{date}}
 ---
 # 03 Resources
 
-Nachschlagewissen, Quellen, Anleitungen.
+Reference material, sources, how-tos.

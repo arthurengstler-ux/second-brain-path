@@ -1,6 +1,14 @@
 const { Plugin, ItemView, Notice, requestUrl } = require("obsidian");
 const path = require("path");
 const { spawn } = require("child_process");
+const fs = require("fs");
+
+// Python per platform: macOS ships /usr/bin/python3, Windows uses the py launcher, Linux python3 on PATH.
+function pythonCmd() {
+  if (process.platform === "win32") return ["py", ["-3"]];
+  if (process.platform === "darwin" && fs.existsSync("/usr/bin/python3")) return ["/usr/bin/python3", []];
+  return ["python3", []];
+}
 
 const VIEW = "brain-dashboard";
 const PORT = 8765;
@@ -21,12 +29,12 @@ class BrainView extends ItemView {
     const c = this.containerEl.children[1];
     c.empty();
     c.style.padding = "0"; c.style.overflow = "hidden";
-    const msg = c.createDiv({ text: "Second Brain startet …" });
+    const msg = c.createDiv({ text: "Second Brain is starting …" });
     msg.style.cssText = "padding:24px;color:var(--text-muted)";
     const ok = await this.plugin.ensureServer();
     if (!ok) {
-      msg.setText("Server konnte nicht starten. Prüfe, ob /usr/bin/python3 existiert, und lade den Tab neu.");
-      const b = c.createEl("button", { text: "Erneut versuchen" });
+      msg.setText("Server could not start. Check that Python 3 is installed (python3, or py on Windows) and reload the tab.");
+      const b = c.createEl("button", { text: "Try again" });
       b.style.margin = "0 24px"; b.onclick = () => this.load_();
       return;
     }
@@ -41,25 +49,25 @@ class BrainView extends ItemView {
 module.exports = class BrainDashboard extends Plugin {
   async onload() {
     this.registerView(VIEW, (leaf) => new BrainView(leaf, this));
-    this.addRibbonIcon("brain-circuit", "Second Brain öffnen", () => this.openView());
-    this.addCommand({ id: "open", name: "Dashboard öffnen", callback: () => this.openView() });
-    this.addCommand({ id: "reload", name: "Dashboard neu laden", callback: () => this.views().forEach(v => v.reload()) });
+    this.addRibbonIcon("brain-circuit", "Open Second Brain", () => this.openView());
+    this.addCommand({ id: "open", name: "Open dashboard", callback: () => this.openView() });
+    this.addCommand({ id: "reload", name: "Reload dashboard", callback: () => this.views().forEach(v => v.reload()) });
 
-    // Klicks im Dashboard öffnen Notizen in Obsidian
+    // clicks in the dashboard open notes in Obsidian
     this.registerDomEvent(window, "message", (ev) => {
       if (ev.origin !== URL_BASE || !ev.data || ev.data.type !== "brain-open") return;
       const file = this.app.vault.getAbstractFileByPath(String(ev.data.path));
       if (file) this.app.workspace.getLeaf("tab").openFile(file);
     });
-    // Theme-Wechsel an das Dashboard weitergeben
+    // pass theme changes on to the dashboard
     this.registerEvent(this.app.workspace.on("css-change", () => this.views().forEach(v => v.reload())));
 
     this.app.workspace.onLayoutReady(async () => {
       await this.ensureServer();
-      // Dashboard beim Start immer öffnen, falls noch kein Tab offen ist
+      // open the dashboard on startup if no tab is open yet
       if (!this.app.workspace.getLeavesOfType(VIEW).length) this.openView();
     });
-    // Server alle 30 s prüfen und bei Bedarf neu starten
+    // check the server every 30 s and restart if needed
     this.registerInterval(window.setInterval(() => this.ensureServer(), 30000));
   }
   views() { return this.app.workspace.getLeavesOfType(VIEW).map(l => l.view).filter(v => v instanceof BrainView); }
@@ -75,7 +83,8 @@ module.exports = class BrainDashboard extends Plugin {
     if (!this.starting) {
       const base = this.app.vault.adapter.getBasePath();
       try {
-        this.proc = spawn("/usr/bin/python3", [path.join(base, "scripts", "brain.py"), "serve"], { cwd: base, stdio: "ignore" });
+        const [cmd, pre] = pythonCmd();
+        this.proc = spawn(cmd, [...pre, path.join(base, "scripts", "brain.py"), "serve"], { cwd: base, stdio: "ignore", windowsHide: true });
         this.proc.on("error", (e) => new Notice("Second Brain: " + e.message));
         this.proc.on("exit", () => { this.proc = null; this.starting = null; });
       } catch (e) { new Notice("Second Brain: " + e.message); return false; }

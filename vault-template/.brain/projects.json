@@ -1,26 +1,27 @@
 {
-  "_hinweis": "rules: ordnet Dateipfade einem Projekt (Notizname) zu, erste passende Regel gewinnt; project \"\" = bewusst ignorieren. scan: wo brain.py docs nach Dokumenten sucht.",
-  "owner": "Mein",
+  "_note": "rules: map file paths to a project (note name); first matching rule wins; project \"\" = deliberately ignore. scan: where `brain.py docs` looks for documents. Use forward slashes or ~ on every OS.",
+  "owner": "My",
   "rules": [
     {
-      "match": "(?i)passw|1password|recovery|kontoauszug",
+      "match": "(?i)passw|1password|recovery|bank.?statement",
       "regex": true,
       "project": ""
     },
     {
-      "match": "~/Desktop/Beispielprojekt",
-      "project": "Beispielprojekt"
+      "match": "~/Desktop/Example project",
+      "project": "Example project"
     },
     {
-      "match": "/(Beispiel_|beispiel-)[^/]*$",
+      "match": "/(Example_|example-)[^/\\\\]*$",
       "regex": true,
-      "project": "Beispielprojekt"
+      "project": "Example project"
     }
   ],
   "scan": {
     "roots": [
       "~/Desktop",
-      "~/Downloads"
+      "~/Downloads",
+      "~/Documents"
     ],
     "max_depth": 4,
     "extensions": [
@@ -33,6 +34,7 @@
       "key",
       "pages",
       "numbers",
+      "odt",
       "html",
       "txt",
       "md",
@@ -47,7 +49,8 @@
       "node_modules",
       ".git",
       ".next",
-      "Library"
+      "Library",
+      "AppData"
     ]
   }
 }

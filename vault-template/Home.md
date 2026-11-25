@@ -1,16 +1,16 @@
 ---
 type: dashboard
-status: aktiv
+status: active
 tags: [home]
 created: {{date}}
 ---
 # Home
 
-## Kurzprofil
-> [!todo] Zu ergänzen
-> Wer du bist, was du machst, woran du gerade arbeitest. Claude liest das als Kontext.
+## Profile
+> [!todo] To fill in
+> Who you are, what you do, what you are working on. Claude reads this as context.
 
-## Bereiche
+## Sections
 - [[00 Inbox]]
 - [[01 Projects]]
 - [[02 Areas]]
@@ -19,15 +19,15 @@ created: {{date}}
 - [[05 People]]
 - [[99 Templates]]
 
-## Nächste Fristen
-| Wann | Was |
+## Upcoming deadlines
+| When | What |
 |---|---|
 
-Live-Ansicht mit Graph: Tab „Second Brain“ (Gehirn-Symbol links in Obsidian) oder `python3 scripts/brain.py serve`.
+Live view with graph: the “Second Brain” tab (brain icon on the left in Obsidian) or `python3 scripts/brain.py serve`.
 
-## Weekly Review
-- [ ] [[00 Inbox]] leeren
-- [ ] Aktive [[01 Projects|Projekte]] prüfen: Status und nächster Schritt stimmen?
-- [ ] Fristen der nächsten 4 Wochen ansehen
-- [ ] [[Claude-Aktivität]] durchsehen
-- [ ] Abgeschlossenes nach [[04 Archive]] verschieben
+## Weekly review
+- [ ] Empty [[00 Inbox]]
+- [ ] Check active [[01 Projects|projects]]: are status and next step still right?
+- [ ] Look at deadlines in the next 4 weeks
+- [ ] Skim [[Claude Activity]]
+- [ ] Move finished work to [[04 Archive]]

@@ -1,9 +1,9 @@
 ---
 name: second-brain-path
-description: Baut Schritt für Schritt ein Second Brain (Obsidian-Vault) für Claude Code auf, inklusive LinkedIn-Import, Kontakt-Index „Wen fragen“, Dashboard und Hooks. Verwenden, wenn jemand /second-brain-path eingibt oder ein Second Brain aus LinkedIn-Daten aufbauen will.
+description: Builds an Obsidian second brain for Claude Code step by step, including a LinkedIn import, a "Who to Ask" contact index, a dashboard and hooks. Use when someone types /second-brain-path or wants to build a second brain from their projects and LinkedIn data.
 ---
 
-Lies `PFAD.md` im Wurzelordner dieses Repositories vollständig und arbeite es Schritt für Schritt ab, beginnend mit Schritt 0.
-`REPO` ist der Wurzelordner dieses Repositories (der Ordner, der `PFAD.md` enthält).
-Halte dich an die Grundregeln dort, besonders: nichts erfinden, nichts Privates, nie Ordner löschen und neu anlegen, globale Claude-Einstellungen nur nach Rückfrage.
-Wenn die Person Argumente mitgibt (z. B. einen Pfad zum LinkedIn-Export), übernimm sie und frag nicht erneut danach.
+Read `PATH.md` in the root of this repository completely and work through it step by step, starting with step 0.
+`REPO` is the root folder of this repository (the folder that contains `PATH.md`).
+Follow its ground rules, especially: never invent facts, nothing private, never delete and recreate folders, only change global Claude settings after asking.
+If the person passes arguments (for example a path to their LinkedIn export), use them and do not ask again.

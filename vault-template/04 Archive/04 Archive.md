@@ -1,9 +1,9 @@
 ---
 type: moc
-status: aktiv
+status: active
 tags: [moc]
 created: {{date}}
 ---
 # 04 Archive
 
-Abgeschlossene Projekte und Bereiche.
+Finished projects and areas.

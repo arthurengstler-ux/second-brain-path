@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Second Brain – Graph, Dashboard-Server und Claude-Hook.
+"""Second Brain: graph, dashboard server and Claude Code hook.
 
-  python3 scripts/brain.py serve     Dashboard mit Steuerung auf http://localhost:8765
-  python3 scripts/brain.py build     Brain.html (Nur-Lesen-Schnappschuss) neu erzeugen
-  python3 scripts/brain.py hook      wird von Claude Code nach jedem Write/Edit aufgerufen
-  python3 scripts/brain.py log PROJEKT "Text"   Eintrag von Hand ins Aktivitätslog
-  python3 scripts/brain.py docs      Desktop/Downloads scannen, Dokumente-Notizen je Thema erzeugen
-  python3 scripts/brain.py context   Kurzüberblick für den Start einer Claude-Sitzung
+  python3 scripts/brain.py serve     dashboard with controls on http://localhost:8765
+  python3 scripts/brain.py build     rebuild Brain.html (read-only snapshot)
+  python3 scripts/brain.py hook      called by Claude Code after every Write/Edit
+  python3 scripts/brain.py log PROJECT "text"   add a manual entry to the activity log
+  python3 scripts/brain.py docs      scan Desktop/Downloads, write a "Documents <project>" note per project
+  python3 scripts/brain.py context   short overview for the start of a Claude session
 
-Nur Python-Standardbibliothek.
+Python standard library only. Works on macOS, Windows and Linux.
 """
 import datetime as dt
 import json
@@ -28,13 +28,24 @@ ACTIVITY = META / "activity.jsonl"
 CONFIG = META / "projects.json"
 TEMPLATE = VAULT / "scripts" / "dashboard.html"
 SNAPSHOT = VAULT / "Brain.html"
-ACTIVITY_NOTE = VAULT / "Claude-Aktivität.md"
+ACTIVITY_NOTE = VAULT / "Claude Activity.md"
 DOCS = META / "docs.json"
 PORT = int(os.environ.get("BRAIN_PORT", "8765"))
 SKIP_DIRS = {".git", ".obsidian", ".brain", "scripts", ".trash"}
-STATUSES = ["aktiv", "geplant", "Idee", "abgeschlossen"]
+STATUSES = ["active", "planned", "idea", "done"]
 WIKILINK = re.compile(r"\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]")
 LOCK = threading.Lock()
+
+
+# ------------------------------------------------------------------ Platform
+def open_file(path):
+    """Open a file with the default app on macOS, Windows or Linux."""
+    if sys.platform == "darwin":
+        subprocess.Popen(["open", path])
+    elif os.name == "nt":
+        os.startfile(path)  # noqa: S606
+    else:
+        subprocess.Popen(["xdg-open", path])
 
 
 # ------------------------------------------------------------------ Parsing
@@ -104,7 +115,7 @@ def build_graph():
         for i, line in enumerate(body.splitlines()):
             if "[!todo]" in line:
                 nxt = body.splitlines()[i + 1] if i + 1 < len(body.splitlines()) else ""
-                todos.append({"kind": "ergänzen", "text": nxt.lstrip("> ").strip()})
+                todos.append({"kind": "todo", "text": nxt.lstrip("> ").strip()})
         checks = []
         for i, line in enumerate(text.splitlines()):
             m = re.match(r"^\s*- \[( |x)\] (.+)$", line)
@@ -127,7 +138,7 @@ def build_graph():
             "mtime": p.stat().st_mtime,
             "links": sorted(set(l.strip() for l in WIKILINK.findall(body))),
             "template": parts[0] == "99 Templates",
-            "meta": name in ("Claude-Aktivität",),
+            "meta": name in ("Claude Activity",),
         }
         notes.append(node)
         by_name[name] = node
@@ -136,7 +147,7 @@ def build_graph():
         for l in n["links"]:
             if l in by_name and l != n["id"]:
                 edges.append({"source": n["id"], "target": l})
-    # Projektbezug der Notizen: jede Notiz unter 01 Projects/<X>/ gehört zu Projekt X
+    # every note under 01 Projects/<X>/ belongs to project X
     for n in notes:
         parts = Path(n["path"]).parts
         n["project"] = parts[1] if parts[0] == "01 Projects" and len(parts) > 2 else ""
@@ -155,7 +166,7 @@ def build_graph():
 def safe_path(rel):
     p = (VAULT / rel).resolve()
     if VAULT.resolve() not in p.parents or p.suffix != ".md":
-        raise ValueError("Pfad außerhalb des Vaults")
+        raise ValueError("path outside the vault")
     return p
 
 
@@ -183,14 +194,14 @@ def toggle_check(rel, line_no):
 
 
 def add_log_entry(rel, text):
-    """Hängt einen datierten Eintrag unter '## Verlauf' an (oder legt den Abschnitt an)."""
+    """Append a dated entry under '## Log' (creates the section if missing)."""
     p = safe_path(rel)
     content = p.read_text(encoding="utf-8").rstrip("\n")
-    entry = f"- {dt.date.today().strftime('%d.%m.%Y')}: {text.strip()}"
-    if "\n## Verlauf" in content:
-        head, tail = content.split("\n## Verlauf", 1)
+    entry = f"- {dt.date.today().strftime('%Y-%m-%d')}: {text.strip()}"
+    if "\n## Log" in content:
+        head, tail = content.split("\n## Log", 1)
         tail_lines = tail.split("\n")
-        # Ende des Abschnitts finden
+        # find end of section
         idx = len(tail_lines)
         for i, l in enumerate(tail_lines[1:], 1):
             if l.startswith("## "):
@@ -199,25 +210,25 @@ def add_log_entry(rel, text):
         while idx > 1 and not tail_lines[idx - 1].strip():
             idx -= 1
         tail_lines.insert(idx, entry)
-        content = head + "\n## Verlauf" + "\n".join(tail_lines)
+        content = head + "\n## Log" + "\n".join(tail_lines)
     else:
-        content += "\n\n## Verlauf\n" + entry
+        content += "\n\n## Log\n" + entry
     p.write_text(content + "\n", encoding="utf-8")
 
 
 def new_inbox(title, text):
-    title = re.sub(r'[\\/:*?"<>|#\[\]]', "", title).strip() or dt.datetime.now().strftime("Notiz %Y-%m-%d %H%M")
+    title = re.sub(r'[\\/:*?"<>|#\[\]]', "", title).strip() or dt.datetime.now().strftime("Note %Y-%m-%d %H%M")
     p = VAULT / "00 Inbox" / f"{title}.md"
     i = 2
     while p.exists():
         p = VAULT / "00 Inbox" / f"{title} {i}.md"
         i += 1
-    p.write_text(f"---\ntype: inbox\nstatus: Idee\ntags: [inbox]\ncreated: {dt.date.today()}\n---\n\n# {p.stem}\n\n{text.strip()}\n",
+    p.write_text(f"---\ntype: inbox\nstatus: idea\ntags: [inbox]\ncreated: {dt.date.today()}\n---\n\n# {p.stem}\n\n{text.strip()}\n",
                  encoding="utf-8")
     return str(p.relative_to(VAULT))
 
 
-# ------------------------------------------------------------------ Aktivität
+# ------------------------------------------------------------------ Activity
 def load_config():
     try:
         return json.loads(CONFIG.read_text(encoding="utf-8"))
@@ -241,9 +252,10 @@ def map_project(path):
 
 
 def rule_project(path, rules=None):
-    """Projekt laut Regeln; '' = bewusst ausgeschlossen, None = keine Regel."""
+    """Project according to rules; '' = deliberately excluded, None = no rule."""
+    path = path.replace("\\", "/")  # Windows: compare with forward slashes
     for rule in (rules if rules is not None else load_config().get("rules", [])):
-        pat = os.path.expanduser(rule["match"])
+        pat = rule["match"] if rule.get("regex") else os.path.expanduser(rule["match"]).replace("\\", "/")
         if rule.get("regex"):
             if re.search(pat, path):
                 return rule["project"]
@@ -252,7 +264,7 @@ def rule_project(path, rules=None):
     return None
 
 
-# ------------------------------------------------------------------ Dokumente
+# ------------------------------------------------------------------ Documents
 def scan_docs():
     cfg = load_config()
     scan, rules = cfg.get("scan", {}), cfg.get("rules", [])
@@ -295,11 +307,11 @@ def scan_docs():
 
 
 def _doc_rows(items, prefix=""):
-    out = [prefix + "| Datei | Ordner | Geändert |", prefix + "|---|---|---|"]
+    out = [prefix + "| File | Folder | Modified |", prefix + "|---|---|---|"]
     for d in items:
         url = "file://" + urllib.parse.quote(d["path"])
         name = d["name"].replace("|", "/").replace("[", "(").replace("]", ")")
-        out.append(f"{prefix}| [{name}]({url}) | `{d['dir']}` | {dt.datetime.fromtimestamp(d['mtime']).strftime('%d.%m.%Y')} |")
+        out.append(f"{prefix}| [{name}]({url}) | `{d['dir']}` | {dt.datetime.fromtimestamp(d['mtime']).strftime('%Y-%m-%d')} |")
     return out
 
 
@@ -310,14 +322,14 @@ def write_doc_notes(found):
         folder = where.get(proj)
         if folder is None:
             continue
-        target = folder / f"Dokumente {proj}.md"
+        target = folder / f"Documents {proj}.md"
         wanted.add(target)
         main = [d for d in items if not d["backup"]]
         backups = [d for d in items if d["backup"]]
-        lines = ["---", "type: dokumente", "status: aktiv", "tags: [dokumente]", "created: 2026-11-24", "---", "",
-                 f"# Dokumente {proj}", "",
-                 f"Gehört zu [[{proj}]]. Automatisch erzeugt aus Desktop und Downloads, Zuordnung in `.brain/projects.json`. "
-                 "Nicht von Hand bearbeiten, wird beim nächsten Scan überschrieben. Klick auf den Namen öffnet die Datei.", ""]
+        lines = ["---", "type: documents", "status: active", "tags: [documents]", f"created: {dt.date.today().isoformat()}", "---", "",
+                 f"# Documents {proj}", "",
+                 f"Belongs to [[{proj}]]. Generated from Desktop and Downloads, mapping in `.brain/projects.json`. "
+                 "Do not edit by hand, it is overwritten on the next scan. Click a name to open the file.", ""]
         lines += _doc_rows(main)
         if backups:
             lines += ["", f"> [!note]- Backups ({len(backups)})"] + _doc_rows(backups, "> ")
@@ -325,12 +337,12 @@ def write_doc_notes(found):
         if not target.exists() or target.read_text(encoding="utf-8") != text:
             target.write_text(text, encoding="utf-8")
     for p, _ in list(iter_notes()):
-        if p.name.startswith("Dokumente ") and p not in wanted and "type: dokumente" in p.read_text(encoding="utf-8")[:80]:
+        if p.name.startswith("Documents ") and p not in wanted and "type: documents" in p.read_text(encoding="utf-8")[:80]:
             p.unlink()
 
 
 def context():
-    """Kurzüberblick, den der SessionStart-Hook in jede Claude-Sitzung lädt."""
+    """Short overview that the SessionStart hook loads into every Claude session."""
     try:
         scan_docs()
     except Exception:  # noqa: BLE001
@@ -341,23 +353,23 @@ def context():
     last = {}
     for r in act:
         last[r.get("project")] = r["ts"][:10]
-    out = [f"## {load_config().get('owner', 'Mein')} Second Brain ({dt.date.today().strftime('%d.%m.%Y')})",
-           f"Vault: {VAULT}. Bevor du an einem dieser Themen arbeitest, lies dessen Notiz und die Notiz 'Dokumente <Thema>' "
-           "(liegt im selben Ordner, listet alle zugehörigen Dateien). Regeln zum Nachtragen: ~/.claude/CLAUDE.md.", "",
-           "Aktive Projekte:"]
+    out = [f"## {load_config().get('owner', 'My')} Second Brain ({dt.date.today().isoformat()})",
+           f"Vault: {VAULT}. Before working on one of these topics, read its note and the note 'Documents <topic>' "
+           "(same folder, lists all related files). Rules for updating: ~/.claude/CLAUDE.md.", "",
+           "Active projects:"]
     for n in notes:
         parts = Path(n["path"]).parts
-        if parts[0] == "01 Projects" and len(parts) == 3 and n["type"] == "projekt" and n["status"] != "abgeschlossen":
+        if parts[0] == "01 Projects" and len(parts) == 3 and n["type"] == "project" and n["status"] != "done":
             bits = [f"- {n['id']} [{n['status']}]"]
             if n["deadline"]:
-                bits.append(f"Frist {n['deadline']}")
+                bits.append(f"deadline {n['deadline']}")
             if n["next"]:
-                bits.append(f"nächster Schritt: {n['next']}")
+                bits.append(f"next step: {n['next']}")
             if n["id"] in last:
-                bits.append(f"Claude zuletzt {last[n['id']]}")
+                bits.append(f"Claude last {last[n['id']]}")
             nd = len(g["docs"].get(n["id"], []))
             if nd:
-                bits.append(f"{nd} Dokumente")
+                bits.append(f"{nd} documents")
             out.append(" · ".join(bits))
     today = dt.date.today().isoformat()
     def end(d):  # 2027 -> 2027-12-31, 2027-06 -> 2027-06-31
@@ -365,12 +377,12 @@ def context():
     fr = sorted((end(n["deadline"]), n["deadline"], n["id"], n["next"]) for n in notes
                 if n["deadline"] and end(n["deadline"]) >= today and not n["template"])
     if fr:
-        out += ["", "Nächste Fristen (\"2027\" = irgendwann 2027):"] + [f"- {d} {i}" + (f" ({x})" if x else "") for _, d, i, x in fr[:7]]
+        out += ["", "Upcoming deadlines (\"2027\" = sometime in 2027):"] + [f"- {d} {i}" + (f" ({x})" if x else "") for _, d, i, x in fr[:7]]
     inbox = [n["id"] for n in notes if n["area"] == "00 Inbox" and n["type"] != "moc"]
     if inbox:
         out += ["", "Inbox: " + ", ".join(inbox[:8])]
     if act:
-        out += ["", "Zuletzt bearbeitet: " + "; ".join(
+        out += ["", "Recently worked on: " + "; ".join(
             f"{r['project']}: {r.get('text') or Path(r.get('file','')).name}" for r in act[-5:])]
     print("\n".join(out))
 
@@ -380,7 +392,7 @@ def record(project, file, tool, session, text=""):
     rows = load_activity(400)
     for r in reversed(rows[-200:]):
         if r.get("session") == session and r.get("file") == file and session:
-            return False  # gleiche Datei in gleicher Sitzung schon geloggt
+            return False  # same file already logged in this session
     row = {"ts": dt.datetime.now().isoformat(timespec="seconds"), "project": project,
            "file": file, "tool": tool, "session": session, "text": text}
     with ACTIVITY.open("a", encoding="utf-8") as f:
@@ -390,13 +402,13 @@ def record(project, file, tool, session, text=""):
 
 def write_activity_note():
     rows = load_activity(60)
-    lines = ["---", "type: log", "status: aktiv", "tags: [claude, log]", f"created: {dt.date.today().isoformat()}", "---", "",
-             "# Claude-Aktivität", "",
-             "Wird automatisch geschrieben, wenn Claude Code Dateien ändert. Nicht von Hand bearbeiten.", "",
-             "| Zeit | Projekt | Datei / Eintrag |", "|---|---|---|"]
+    lines = ["---", "type: log", "status: active", "tags: [claude, log]", f"created: {dt.date.today().isoformat()}", "---", "",
+             "# Claude Activity", "",
+             "Written automatically whenever Claude Code changes a file. Do not edit by hand.", "",
+             "| Time | Project | File / entry |", "|---|---|---|"]
     names = {p.stem for p, _ in iter_notes()}
     for r in reversed(rows):
-        t = dt.datetime.fromisoformat(r["ts"]).strftime("%d.%m. %H:%M")
+        t = dt.datetime.fromisoformat(r["ts"]).strftime("%Y-%m-%d %H:%M")
         proj = f"[[{r['project']}]]" if r.get("project") in names else (r.get("project") or "–")
         what = r.get("text") or ("`" + r.get("file", "").replace(str(Path.home()), "~") + "`")
         lines.append(f"| {t} | {proj} | {what.replace('|', '/')} |")
@@ -413,9 +425,9 @@ def run_hook():
     if not file:
         return
     file = os.path.abspath(os.path.expanduser(file))
-    if file in (str(ACTIVITY_NOTE), str(SNAPSHOT)) or "/.brain/" in file:
+    if file in (str(ACTIVITY_NOTE), str(SNAPSHOT)) or "/.brain/" in file.replace("\\", "/"):
         return
-    project = map_project(file) or map_project(data.get("cwd", "")) or "Sonstiges"
+    project = map_project(file) or map_project(data.get("cwd", "")) or "Other"
     if record(project, file, data.get("tool_name", ""), data.get("session_id", "")):
         write_activity_note()
         build_snapshot()
@@ -465,7 +477,7 @@ class Handler(BaseHTTPRequestHandler):
         self._send(404, "{}")
 
     def do_POST(self):
-        # Nur Anfragen von der eigenen Seite annehmen
+        # only accept requests from our own page
         origin = self.headers.get("Origin", "")
         if origin and not re.match(r"^http://(localhost|127\.0\.0\.1):%d$" % PORT, origin):
             return self._send(403, '{"error":"origin"}')
@@ -477,7 +489,7 @@ class Handler(BaseHTTPRequestHandler):
                 if path == "/api/set":
                     key = req["key"]
                     if key not in ("status", "deadline", "next_step"):
-                        raise ValueError("Feld nicht erlaubt")
+                        raise ValueError("field not allowed")
                     set_frontmatter(req["path"], key, str(req.get("value", "")).strip())
                 elif path == "/api/check":
                     toggle_check(req["path"], int(req["line"]))
@@ -488,8 +500,8 @@ class Handler(BaseHTTPRequestHandler):
                 elif path == "/api/open":
                     known = {d["path"] for v in json.loads(DOCS.read_text(encoding="utf-8")).values() for d in v}
                     if req["path"] not in known:
-                        raise ValueError("Datei nicht im Index")
-                    subprocess.Popen(["open", req["path"]])
+                        raise ValueError("file not in index")
+                    open_file(req["path"])
                     return self._send(200, '{"ok":true}')
                 elif path == "/api/inbox":
                     rel = new_inbox(req.get("title", ""), req.get("text", ""))
@@ -516,7 +528,7 @@ def serve():
     threading.Thread(target=_rescan_loop, daemon=True).start()
     build_snapshot()
     srv = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
-    print(f"Second Brain läuft auf http://localhost:{PORT}  (Strg+C beendet)")
+    print(f"Second Brain running on http://localhost:{PORT}  (Ctrl+C to stop)")
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
@@ -530,7 +542,7 @@ if __name__ == "__main__":
     elif cmd == "build":
         write_activity_note()
         build_snapshot()
-        print(f"geschrieben: {SNAPSHOT}")
+        print(f"written: {SNAPSHOT}")
     elif cmd == "hook":
         try:
             run_hook()

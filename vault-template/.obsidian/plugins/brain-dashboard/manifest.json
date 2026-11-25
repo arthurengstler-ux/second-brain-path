@@ -3,7 +3,7 @@
   "name": "Second Brain Dashboard",
   "version": "1.0.0",
   "minAppVersion": "1.4.0",
-  "description": "Zeigt das Graph-Dashboard (scripts/brain.py) als Tab und startet den lokalen Server automatisch.",
+  "description": "Shows the graph dashboard (scripts/brain.py) in a tab and starts the local server automatically.",
   "author": "second-brain-path",
   "isDesktopOnly": true
 }

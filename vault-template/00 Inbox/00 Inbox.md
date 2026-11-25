@@ -1,9 +1,9 @@
 ---
 type: moc
-status: aktiv
+status: active
 tags: [moc]
 created: {{date}}
 ---
 # 00 Inbox
 
-Alles, was noch nicht einsortiert ist. Beim Weekly Review leeren.
+Everything not yet sorted. Empty it during the weekly review.

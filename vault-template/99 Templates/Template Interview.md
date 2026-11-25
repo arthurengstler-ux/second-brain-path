@@ -1,6 +1,6 @@
 ---
 type: interview
-status: geplant
+status: planned
 tags: [interview]
 created: {{date}}
 ---
@@ -8,13 +8,12 @@ created: {{date}}
 # {{title}}
 
 - **Person:** [[]]
-- **Datum:** 
-- **Status:** geplant
+- **Date:** 
+- **Status:** planned
 
-## Fragen
+## Questions
 1. 
 
-## Kernaussagen
+## Key points
 
-## Zitate
-
+## Quotes
