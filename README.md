@@ -31,6 +31,13 @@ flowchart LR
     V --> D[Dashboard in Obsidian<br/>graph, deadlines, to-dos]
 ```
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/dashboard-dark.png">
+  <img alt="The dashboard in Obsidian: a graph of projects, areas and about 300 contacts, next to project cards with deadlines and next steps" src="docs/images/dashboard-light.png">
+</picture>
+
+*The dashboard of a demo vault with ~300 contacts. Every name and company in these pictures is made up (`tests/make_demo_vault.py`).*
+
 ## What you get out of it
 
 | Before | After |
@@ -43,6 +50,8 @@ flowchart LR
 | CV somewhere | Your CV from LinkedIn as a note, refreshed on every import |
 | What did Claude do last week? | `Claude Activity.md` and a log per project |
 | Overview only in your head | A dashboard in Obsidian with graph, project cards, deadlines and open items |
+
+<img alt="The note Who to Ask: contacts grouped by project, plus requests that never got a reply" src="docs/images/who-to-ask.png" width="640">
 
 **In short: Claude goes from a tool you have to brief every time to an assistant that knows where you stand.** Your LinkedIn network becomes searchable along the way. Not “350 contacts”, but “these 5 people fit your project, and these 3 never got a follow-up”.
 
@@ -139,6 +148,7 @@ vault-template/                     PARA structure, templates, dashboard (brain.
 claude/                             hooks (macOS/Linux and Windows) and a CLAUDE.md snippet
 tests/make_fake_export.py           a made-up export to try things out
 tests/make_fake_claude_app_export.py a made-up Claude app export
+tests/make_demo_vault.py            a full demo vault (~300 made-up contacts) for screenshots
 tests/smoke_test.py                 runs the whole path on made-up data, on any OS
 .github/workflows/test.yml          runs the smoke test on macOS, Windows and Linux on every push
 ```
