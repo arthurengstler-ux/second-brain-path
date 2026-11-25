@@ -538,6 +538,11 @@ def serve():
 
 
 if __name__ == "__main__":
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8")  # Windows consoles default to cp1252
+        except (AttributeError, ValueError):
+            pass
     cmd = sys.argv[1] if len(sys.argv) > 1 else "build"
     if cmd == "serve":
         serve()

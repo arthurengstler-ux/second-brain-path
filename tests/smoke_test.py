@@ -21,7 +21,7 @@ ok = True
 
 
 def run(*args, stdin=None):
-    r = subprocess.run([PY, "-I", *map(str, args)], capture_output=True, text=True, encoding="utf-8", input=stdin)
+    r = subprocess.run([PY, "-I", *map(str, args)], capture_output=True, text=True, encoding="utf-8", errors="replace", input=stdin)
     if r.returncode != 0:
         print("FAILED:", " ".join(map(str, args)), "\n", r.stdout, r.stderr)
         sys.exit(1)
@@ -131,9 +131,9 @@ try:
     print("brain.py")
     brain = vault / "scripts/brain.py"
     env_home = {"HOME": str(home), "USERPROFILE": str(home)}
-    r = subprocess.run([PY, str(brain), "context"], capture_output=True, text=True, encoding="utf-8", env={**os.environ, **env_home})
+    r = subprocess.run([PY, str(brain), "context"], capture_output=True, text=True, encoding="utf-8", errors="replace", env={**os.environ, **env_home})
     check(r.returncode == 0 and "Alex Sample's Second Brain" in r.stdout and "Bachelor thesis" in r.stdout, "session overview lists the project")
-    r = subprocess.run([PY, str(brain), "docs"], capture_output=True, text=True, encoding="utf-8", env={**os.environ, **env_home})
+    r = subprocess.run([PY, str(brain), "docs"], capture_output=True, text=True, encoding="utf-8", errors="replace", env={**os.environ, **env_home})
     check(r.returncode == 0 and (vault / "01 Projects/Bachelor thesis/Documents Bachelor thesis.md").exists(), "documents note per project")
     for f, should in [(secret / "notes.md", False), (thesis / "draft.docx", True)]:
         act = vault / ".brain/activity.jsonl"
@@ -142,7 +142,7 @@ try:
         subprocess.run([PY, str(brain), "hook"], input=hook, text=True, encoding="utf-8", env={**os.environ, **env_home})
         after = act.read_text(encoding="utf-8") if act.exists() else ""
         check((after != before) == should, f"hook {'logs' if should else 'skips'} {f.parent.name}/{f.name}")
-    r = subprocess.run([PY, str(brain), "build"], capture_output=True, text=True, encoding="utf-8")
+    r = subprocess.run([PY, str(brain), "build"], capture_output=True, text=True, encoding="utf-8", errors="replace")
     check(r.returncode == 0 and (vault / "Brain.html").exists(), "dashboard snapshot builds")
 finally:
     shutil.rmtree(tmp, ignore_errors=True)
