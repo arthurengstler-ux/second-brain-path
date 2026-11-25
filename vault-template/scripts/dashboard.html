@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Second Brain</title>
+<style>
+:root{
+  --bg:#f4f3ef; --panel:#ffffff; --ink:#1d1f24; --muted:#6b6f78; --line:#e3e1da; --soft:#efeee9;
+  --accent:#2f5bea; --warn:#c2410c; --ok:#15803d;
+  --c-home:#1d1f24; --c-inbox:#a16207; --c-proj:#2f5bea; --c-area:#0f9d76; --c-res:#9333ea; --c-arch:#8a8f98; --c-ppl:#e2558a; --c-tpl:#b5b8bf; --c-pol:#1e3a8a;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#111317; --panel:#1a1d23; --ink:#eceef2; --muted:#9aa0ab; --line:#2a2e36; --soft:#22262d;
+    --accent:#6b8cff; --warn:#fb923c; --ok:#4ade80;
+    --c-home:#eceef2; --c-inbox:#facc15; --c-proj:#6b8cff; --c-area:#34d399; --c-res:#c084fc; --c-arch:#6b7280; --c-ppl:#f472b6; --c-tpl:#4b5060; --c-pol:#93a8e8;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#111317; --panel:#1a1d23; --ink:#eceef2; --muted:#9aa0ab; --line:#2a2e36; --soft:#22262d;
+  --accent:#6b8cff; --warn:#fb923c; --ok:#4ade80;
+  --c-home:#eceef2; --c-inbox:#facc15; --c-proj:#6b8cff; --c-area:#34d399; --c-res:#c084fc; --c-arch:#6b7280; --c-ppl:#f472b6; --c-tpl:#4b5060; --c-pol:#93a8e8;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Inter","Segoe UI",sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+.app{display:grid;grid-template-columns:1fr 420px;grid-template-rows:auto 1fr;height:100vh}
+header{grid-column:1/-1;display:flex;align-items:center;gap:14px;padding:12px 18px;border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
+header h1{font-size:17px;margin:0;font-weight:700;letter-spacing:-.01em}
+header .live{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ok);display:inline-block}
+.dot.off{background:var(--muted)}
+.search{flex:0 1 260px;padding:7px 11px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:4px 10px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px}
+.chip i{width:8px;height:8px;border-radius:50%;display:inline-block}
+.chip.off{opacity:.4}
+.stats{margin-left:auto;display:flex;gap:16px;font-size:12px;color:var(--muted)}
+.stats b{color:var(--ink);font-size:15px;display:block;line-height:1.1}
+.stage{position:relative;overflow:hidden}
+canvas{display:block;width:100%;height:100%;cursor:grab}
+canvas.drag{cursor:grabbing}
+.legend{position:absolute;left:14px;bottom:12px;font-size:11px;color:var(--muted);background:color-mix(in srgb,var(--panel) 85%,transparent);border:1px solid var(--line);border-radius:8px;padding:8px 10px;line-height:1.7}
+.legend span{display:inline-flex;align-items:center;gap:5px;margin-right:10px}
+.ring{width:10px;height:10px;border-radius:50%;display:inline-block;border:2px solid var(--muted)}
+.banner{position:absolute;top:12px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 12px;font-size:12px;color:var(--muted)}
+aside{border-left:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}
+.tabs{display:flex;border-bottom:1px solid var(--line);padding:0 8px}
+.tab{padding:10px 10px;font-size:13px;border:0;background:none;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent}
+.tab.on{color:var(--ink);border-bottom-color:var(--accent);font-weight:600}
+.tab .n{font-size:11px;background:var(--soft);border-radius:999px;padding:0 6px;margin-left:4px}
+.pane{overflow:auto;padding:14px;flex:1;min-height:0}
+.card{border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px;background:var(--panel)}
+.card h3{margin:0 0 6px;font-size:14px;cursor:pointer}
+.card h3:hover{color:var(--accent)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.muted{color:var(--muted);font-size:12px}
+.pill{font-size:11px;border-radius:999px;padding:1px 8px;background:var(--soft)}
+.pill.aktiv{background:color-mix(in srgb,var(--c-proj) 18%,transparent);color:var(--c-proj)}
+.pill.geplant{background:color-mix(in srgb,var(--c-inbox) 18%,transparent);color:var(--c-inbox)}
+.pill.abgeschlossen{color:var(--muted)}
+select.st,input.f{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:3px 6px;font-size:12px}
+input.f{width:100%}
+.bar{height:5px;background:var(--soft);border-radius:3px;overflow:hidden;flex:1}
+.bar i{display:block;height:100%;background:var(--ok)}
+.item{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);align-items:flex-start}
+.item:last-child{border-bottom:0}
+.when{min-width:78px;font-variant-numeric:tabular-nums;font-size:12px;font-weight:600}
+.when.soon{color:var(--warn)}
+.link{color:var(--accent);cursor:pointer;text-decoration:none}
+.link:hover{text-decoration:underline}
+h4{margin:16px 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+h4:first-child{margin-top:0}
+label.ck{display:flex;gap:8px;align-items:flex-start;padding:4px 0;cursor:pointer}
+label.ck input{margin-top:3px}
+label.ck.done span{text-decoration:line-through;color:var(--muted)}
+textarea,input.t{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--bg);resize:vertical}
+.btn{border:1px solid var(--accent);background:var(--accent);color:#fff;border-radius:8px;padding:7px 12px;cursor:pointer;font-size:13px}
+.btn.ghost{background:none;color:var(--accent)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.detail{position:absolute;inset:0;background:var(--panel);overflow:auto;padding:16px;display:none}
+.detail.open{display:block}
+.side{position:relative;flex:1;min-height:0;display:flex;flex-direction:column}
+.close{float:right;border:0;background:var(--soft);border-radius:6px;padding:2px 9px;cursor:pointer}
+.kv{display:grid;grid-template-columns:90px 1fr;gap:6px 10px;align-items:center;margin:10px 0}
+.kv span{font-size:12px;color:var(--muted)}
+.summary{background:var(--soft);border-radius:8px;padding:10px;font-size:13px;margin:10px 0}
+.heat{display:flex;gap:3px;align-items:flex-end;height:38px;margin:6px 0 2px}
+.heat i{flex:1;background:var(--accent);border-radius:2px;min-height:2px;opacity:.8}
+.toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+@media (max-width:900px){
+  .app{grid-template-columns:1fr;grid-template-rows:auto 55vh 1fr;height:auto;min-height:100vh}
+  aside{border-left:0;border-top:1px solid var(--line)}
+  .stats{display:none}
+  header{padding:10px 16px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Second Brain</h1>
+    <div class="live"><span class="dot" id="liveDot"></span><span id="liveTxt"></span></div>
+    <input class="search" id="search" placeholder="Notiz suchen …">
+    <div class="chips" id="chips"></div>
+    <div class="stats" id="stats"></div>
+  </header>
+  <div class="stage" id="stage">
+    <canvas id="cv"></canvas>
+    <div class="banner" id="banner" hidden>Nur-Lesen-Ansicht. Zum Steuern <b>Brain.command</b> doppelklicken.</div>
+    <div class="legend">
+      <span><i class="ring" style="background:var(--muted)"></i>aktiv</span>
+      <span><i class="ring"></i>geplant</span>
+      <span><i class="ring" style="border-style:dashed"></i>Idee</span>
+      <span><i class="ring" style="opacity:.35;background:var(--muted)"></i>abgeschlossen</span>
+      <span><i class="ring" style="border-color:var(--warn)"></i>Claude &lt; 24 h</span>
+    </div>
+  </div>
+  <aside>
+    <div class="tabs" id="tabs"></div>
+    <div class="side">
+      <div class="pane" id="pane"></div>
+      <div class="detail" id="detail"></div>
+    </div>
+  </aside>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const QS = new URLSearchParams(location.search);
+const EMBED = QS.has("embed") && window.parent !== window;
+if (QS.get("theme")) document.documentElement.dataset.theme = QS.get("theme");
+let DATA = /*__DATA__*/null;
+const LIVE = /*__LIVE__*/false;
+const AREAS = {
+  "Home":{c:"--c-home",label:"Home"}, "00 Inbox":{c:"--c-inbox",label:"Inbox"},
+  "01 Projects":{c:"--c-proj",label:"Projekte"}, "02 Areas":{c:"--c-area",label:"Bereiche"},
+  "03 Resources":{c:"--c-res",label:"Ressourcen"}, "04 Archive":{c:"--c-arch",label:"Archiv"},
+  "05 People":{c:"--c-ppl",label:"Personen"}, "99 Templates":{c:"--c-tpl",label:"Vorlagen"}
+};
+const hidden = new Set(["99 Templates"]);
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let tab = "projekte", selected = null, hover = null, query = "";
+
+// ---------------------------------------------------------------- Graph-Modell
+let nodes = [], edges = [], byId = {}, nbrs = {};
+function ingest(d){
+  const old = byId;
+  DATA = d;
+  nodes = d.notes.filter(n => !n.meta).map(n => {
+    const o = old[n.id];
+    return Object.assign(n, o ? {x:o.x,y:o.y,vx:o.vx,vy:o.vy,fixed:o.fixed} : seed(n));
+  });
+  byId = {}; nodes.forEach(n => byId[n.id] = n);
+  edges = d.edges.filter(e => byId[e.source] && byId[e.target]);
+  nbrs = {}; nodes.forEach(n => nbrs[n.id] = new Set());
+  edges.forEach(e => { nbrs[e.source].add(e.target); nbrs[e.target].add(e.source); });
+  nodes.forEach(n => {
+    n.deg = nbrs[n.id].size;
+    n.isHub = n.type === "moc" || n.type === "projekt" || n.type === "dashboard";
+    n.recent = lastActivity(n.id) && (Date.now() - lastActivity(n.id)) < 864e5;
+  });
+  heat = 1;
+}
+const areaKeys = Object.keys(AREAS);
+function center(area){
+  if (area === "Home") return {x:0,y:0};
+  const i = areaKeys.indexOf(area), a = (i / (areaKeys.length-1)) * Math.PI * 2 - Math.PI/2;
+  return {x:Math.cos(a)*520, y:Math.sin(a)*380};
+}
+function seed(n){ const c = center(n.area), s = 120 + Math.sqrt((DATA?.notes||[]).filter(m=>m.area===n.area).length)*25; return {x:c.x+(Math.random()-.5)*s, y:c.y+(Math.random()-.5)*s, vx:0, vy:0}; }
+function visible(n){ return !hidden.has(n.area); }
+
+let heat = 1;
+function tick(){
+  if (heat < 0.004) return;
+  const vis = nodes.filter(visible);
+  for (let i=0;i<vis.length;i++){
+    const a = vis[i];
+    for (let j=i+1;j<vis.length;j++){
+      const b = vis[j]; let dx=a.x-b.x, dy=a.y-b.y; if(!dx&&!dy){dx=Math.random()-.5;dy=Math.random()-.5;} let d2=Math.max(dx*dx+dy*dy, 64);
+      if (d2 > 160000) continue;
+      const f = (a.isHub||b.isHub ? 4200 : 2200)/d2; const d=Math.sqrt(d2);
+      dx/=d; dy/=d; a.vx+=dx*f; a.vy+=dy*f; b.vx-=dx*f; b.vy-=dy*f;
+    }
+  }
+  edges.forEach(e => {
+    const a=byId[e.source], b=byId[e.target]; if(!visible(a)||!visible(b)) return;
+    let dx=b.x-a.x, dy=b.y-a.y, d=Math.sqrt(dx*dx+dy*dy)+.01;
+    const target = (a.isHub && b.isHub) ? 190 : 85;
+    const f=(d-target)*0.012; dx/=d; dy/=d;
+    a.vx+=dx*f; a.vy+=dy*f; b.vx-=dx*f; b.vy-=dy*f;
+  });
+  vis.forEach(n => {
+    const c = center(n.area);
+    n.vx += (c.x-n.x)*0.006; n.vy += (c.y-n.y)*0.006;
+    if (n.id==="Home" && !n.fixed){ n.x*=0.9; n.y*=0.9; }
+    if (n.fixed) { n.vx=n.vy=0; return; }
+    n.vx*=0.82; n.vy*=0.82;
+    const sp=Math.hypot(n.vx,n.vy); if(sp>30){ n.vx*=30/sp; n.vy*=30/sp; }
+    n.x+=n.vx*heat; n.y+=n.vy*heat;
+  });
+  heat *= 0.992;
+}
+
+// ---------------------------------------------------------------- Zeichnen
+const cv = $("cv"), ctx = cv.getContext("2d");
+let W=0,H=0,DPR=1, view={x:0,y:0,k:1};
+function resize(){
+  const r = cv.parentElement.getBoundingClientRect(); DPR = window.devicePixelRatio||1;
+  W=r.width; H=r.height; cv.width=W*DPR; cv.height=H*DPR;
+  if (!view.init){ view.k = Math.min(W/1450, H/1050, 1.2); view.x=W/2; view.y=H/2; view.init=true; }
+}
+window.addEventListener("resize", resize);
+const radius = n => (n.id==="Home"?13:n.isHub?7+Math.min(n.deg,12)*0.45:4+Math.min(n.deg,8)*0.35);
+function matches(n){ return query && (n.id.toLowerCase().includes(query) || (n.summary||"").toLowerCase().includes(query)); }
+function draw(){
+  tick();
+  ctx.setTransform(DPR,0,0,DPR,0,0); ctx.clearRect(0,0,W,H);
+  ctx.translate(view.x,view.y); ctx.scale(view.k,view.k);
+  const focus = selected || hover;
+  const lit = focus ? new Set([focus, ...nbrs[focus]]) : null;
+  const ink = css("--ink"), line = css("--line"), muted = css("--muted"), warn = css("--warn");
+  ctx.lineWidth = 1/view.k;
+  edges.forEach(e => {
+    const a=byId[e.source], b=byId[e.target]; if(!visible(a)||!visible(b)) return;
+    const on = lit && lit.has(a.id) && lit.has(b.id) && (a.id===focus||b.id===focus);
+    ctx.strokeStyle = on ? css(AREAS[byId[focus].area].c) : line;
+    ctx.globalAlpha = lit ? (on?0.9:0.15) : 0.8;
+    ctx.lineWidth = (on?1.6:1)/view.k;
+    ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+  });
+  const t = performance.now()/1000;
+  const labels = [];
+  nodes.forEach(n => {
+    if(!visible(n)) return;
+    const col = css(AREAS[n.area]?.c || "--muted"), r = radius(n);
+    let alpha = lit ? (lit.has(n.id)?1:0.15) : 1;
+    if (query) alpha = matches(n) ? 1 : 0.12;
+    if (n.status === "abgeschlossen") alpha *= 0.45;
+    ctx.globalAlpha = alpha;
+    if (n.recent){
+      ctx.strokeStyle = warn; ctx.lineWidth = 2/view.k;
+      ctx.beginPath(); ctx.arc(n.x,n.y,r+4+Math.sin(t*3)*1.5,0,7); ctx.stroke();
+    }
+    ctx.beginPath(); ctx.arc(n.x,n.y,r,0,7);
+    if (n.status === "geplant" || n.status === "Idee"){
+      ctx.fillStyle = css("--panel"); ctx.fill();
+      ctx.strokeStyle = col; ctx.lineWidth = 2/view.k;
+      if (n.status === "Idee") ctx.setLineDash([3/view.k,3/view.k]);
+      ctx.stroke(); ctx.setLineDash([]);
+    } else { ctx.fillStyle = col; ctx.fill(); }
+    if (n.id === selected){ ctx.strokeStyle = ink; ctx.lineWidth = 2.5/view.k; ctx.beginPath(); ctx.arc(n.x,n.y,r+3,0,7); ctx.stroke(); }
+    const showLabel = (n.isHub && (n.deg>=4 || view.k>0.8)) || view.k > 1.3 || (lit && lit.has(n.id)) || matches(n);
+    if (showLabel){
+      const prio = (n.id===selected||n.id===hover?1000:0) + (lit&&lit.has(n.id)?500:0) + (matches(n)?400:0) + (n.isHub?100:0) + n.deg;
+      labels.push({n, r, alpha, prio});
+    }
+  });
+  // Beschriftungen ohne Überlappung: wichtigste zuerst, verdeckte weglassen
+  labels.sort((a,b)=>b.prio-a.prio);
+  const placed = [];
+  labels.forEach(({n,r,alpha}) => {
+    const fs = (n.isHub?12:11);
+    ctx.font = `${n.isHub?600:400} ${fs/view.k}px -apple-system,sans-serif`;
+    const w = ctx.measureText(n.id).width*view.k, sx = n.x*view.k+view.x, sy = (n.y+r)*view.k+view.y+3;
+    const box = {x1:sx-w/2-3, x2:sx+w/2+3, y1:sy, y2:sy+fs+3};
+    if (placed.some(b => box.x1<b.x2 && box.x2>b.x1 && box.y1<b.y2 && box.y2>b.y1)) return;
+    placed.push(box);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = n.isHub ? ink : muted; ctx.textAlign = "center";
+    ctx.fillText(n.id, n.x, n.y + r + 13/view.k);
+  });
+  ctx.globalAlpha = 1;
+  requestAnimationFrame(draw);
+}
+
+// ---------------------------------------------------------------- Interaktion
+function toWorld(ev){ const r=cv.getBoundingClientRect(); return {x:(ev.clientX-r.left-view.x)/view.k, y:(ev.clientY-r.top-view.y)/view.k}; }
+function pick(p){ let best=null, bd=1e9; nodes.forEach(n=>{ if(!visible(n))return; const d=Math.hypot(n.x-p.x,n.y-p.y); if(d<radius(n)+6/view.k && d<bd){bd=d;best=n;} }); return best; }
+let drag=null, pan=null, moved=false;
+cv.addEventListener("pointerdown", ev => {
+  cv.setPointerCapture(ev.pointerId); moved=false;
+  const p = toWorld(ev), n = pick(p);
+  if (n){ drag=n; n.fixed=true; } else pan={x:ev.clientX-view.x,y:ev.clientY-view.y};
+  cv.classList.add("drag");
+});
+cv.addEventListener("pointermove", ev => {
+  const p = toWorld(ev);
+  if (drag){ drag.x=p.x; drag.y=p.y; moved=true; heat=Math.max(heat,.3); }
+  else if (pan){ view.x=ev.clientX-pan.x; view.y=ev.clientY-pan.y; moved=true; }
+  else { const n=pick(p); hover = n?n.id:null; cv.style.cursor = n?"pointer":"grab"; }
+});
+cv.addEventListener("pointerup", ev => {
+  cv.classList.remove("drag");
+  if (drag){ drag.fixed=false; if(!moved) select(drag.id); }
+  else if (pan && !moved){ select(null); }
+  drag=null; pan=null;
+});
+cv.addEventListener("wheel", ev => {
+  ev.preventDefault(); const r=cv.getBoundingClientRect();
+  const mx=ev.clientX-r.left, my=ev.clientY-r.top, k=Math.exp(-ev.deltaY*0.0015);
+  const nk = Math.min(4,Math.max(0.25,view.k*k));
+  view.x = mx-(mx-view.x)*(nk/view.k); view.y = my-(my-view.y)*(nk/view.k); view.k=nk;
+},{passive:false});
+cv.addEventListener("dblclick", ev => { const n=pick(toWorld(ev)); if(n) openObsidian(n); });
+$("search").addEventListener("input", e => {
+  query = e.target.value.trim().toLowerCase();
+  const hit = nodes.find(n => visible(n) && n.id.toLowerCase().startsWith(query));
+  if (query && hit){ view.x = W/2 - hit.x*view.k; view.y = H/2 - hit.y*view.k; }
+});
+$("search").addEventListener("keydown", e => { if(e.key==="Enter"){ const n=nodes.find(matches); if(n) select(n.id); } });
+
+// ---------------------------------------------------------------- Helfer
+function obsidianUrl(n){ return `obsidian://open?vault=${encodeURIComponent(DATA.vault)}&file=${encodeURIComponent(n.path.replace(/\.md$/,""))}`; }
+function openObsidian(n){ if (EMBED) window.parent.postMessage({type:"brain-open", path:n.path}, "*"); else location.href = obsidianUrl(n); }
+function lastActivity(id){
+  const rows = (DATA.activity||[]).filter(r => r.project === id);
+  return rows.length ? new Date(rows[rows.length-1].ts).getTime() : 0;
+}
+function rel(ts){
+  const s = (Date.now()-ts)/1000;
+  if (s < 60) return "gerade eben"; if (s < 3600) return `vor ${Math.round(s/60)} Min.`;
+  if (s < 86400) return `vor ${Math.round(s/3600)} Std.`; const d=Math.round(s/86400); return d===1?"gestern":`vor ${d} Tagen`;
+}
+const MONTHS = ["Jän","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
+function parseDeadline(s){
+  if(!s) return null; const m = String(s).match(/^(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?/); if(!m) return null;
+  const y=+m[1], mo=m[2]?+m[2]:null, d=m[3]?+m[3]:null;
+  const date = new Date(y, (mo||12)-1, d || (mo ? new Date(y,mo,0).getDate() : 31));
+  const label = d ? `${String(d).padStart(2,"0")}.${String(mo).padStart(2,"0")}.${y}` : mo ? `${MONTHS[mo-1]} ${y}` : `${y}`;
+  return {date,label,precision:d?3:mo?2:1};
+}
+function toast(msg){ const t=$("toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),1600); }
+async function api(path, body){
+  if(!LIVE) return toast("Nur-Lesen: Brain.command starten");
+  const r = await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  const j = await r.json(); if(!r.ok){ toast("Fehler: "+(j.error||r.status)); return null; }
+  await refresh(true); return j;
+}
+const dis = LIVE ? "" : "disabled";
+function statusSelect(n){
+  return `<select class="st" ${dis} onchange="api('/api/set',{path:${JSON.stringify(n.path).replace(/"/g,"&quot;")},key:'status',value:this.value}).then(()=>toast('Status gespeichert'))">
+    ${["", ...DATA.statuses].map(s=>`<option ${s===n.status?"selected":""} value="${s}">${s||"–"}</option>`).join("")}</select>`;
+}
+function field(n,key,val,ph){
+  return `<input class="f" ${dis} value="${esc(val)}" placeholder="${ph}" onchange="api('/api/set',{path:${esc(JSON.stringify(n.path))},key:'${key}',value:this.value}).then(()=>toast('Gespeichert'))">`;
+}
+function projects(){ return nodes.filter(n => n.area==="01 Projects" && n.path.split("/").length===3 && n.type==="projekt"); }
+
+// ---------------------------------------------------------------- Seitenleiste
+const TABS = [["projekte","Projekte"],["fristen","Fristen"],["offen","Offen"],["claude","Claude"],["inbox","Inbox"]];
+function renderTabs(){
+  const counts = {offen: nodes.reduce((a,n)=>a+n.todos.length+n.checks.filter(c=>!c.done).length,0),
+                  inbox: nodes.filter(n=>n.area==="00 Inbox" && n.type!=="moc").length,
+                  claude: (DATA.activity||[]).filter(r=>Date.now()-new Date(r.ts)<7*864e5).length};
+  $("tabs").innerHTML = TABS.map(([k,l]) => `<button class="tab ${tab===k?"on":""}" onclick="tab='${k}';renderSide()">${l}${counts[k]?`<span class="n">${counts[k]}</span>`:""}</button>`).join("");
+}
+function renderSide(){
+  renderTabs();
+  const p = $("pane");
+  if (tab==="projekte"){
+    p.innerHTML = projects().sort((a,b)=>(a.status==="aktiv"?0:1)-(b.status==="aktiv"?0:1)).map(n => {
+      const sub = nodes.filter(m => m.project===n.id);
+      const all = sub.flatMap(m=>m.checks), done = all.filter(c=>c.done).length;
+      const todo = sub.reduce((a,m)=>a+m.todos.length,0);
+      const la = lastActivity(n.id), dl = parseDeadline(n.deadline);
+      return `<div class="card">
+        <div class="row" style="justify-content:space-between"><h3 onclick="select('${esc(n.id)}')">${esc(n.id)}</h3>${statusSelect(n)}</div>
+        <div class="row muted" style="margin-bottom:8px">
+          ${dl?`<span>Frist: <b style="color:var(--ink)">${dl.label}</b></span>`:""}
+          ${la?`<span>· Claude ${rel(la)}</span>`:""}
+          ${todo?`<span>· ${todo} zu ergänzen</span>`:""}
+        </div>
+        ${field(n,"next_step",n.next,"Nächster Schritt …")}
+        ${all.length?`<div class="row" style="margin-top:8px"><div class="bar"><i style="width:${Math.round(done/all.length*100)}%"></i></div><span class="muted">${done}/${all.length}</span></div>`:""}
+      </div>`; }).join("");
+  }
+  if (tab==="fristen"){
+    const now = new Date();
+    const list = nodes.filter(n=>n.deadline && !n.template).map(n=>({n,d:parseDeadline(n.deadline)})).filter(x=>x.d).sort((a,b)=>a.d.date-b.d.date);
+    p.innerHTML = `<h4>Nach Datum</h4>` + list.map(({n,d}) => {
+      const days = Math.round((d.date-now)/864e5);
+      return `<div class="item"><div class="when ${days<45&&days>=0?"soon":""}">${d.label}</div>
+        <div style="flex:1"><a class="link" onclick="select('${esc(n.id)}')">${esc(n.id)}</a>
+        <div class="muted">${esc(n.next||"")}${days>=0?` · noch ${days} Tage${d.precision<3?" (spätestens)":""}`:" · vorbei"}</div></div>
+        <span class="pill ${n.status}">${n.status}</span></div>`; }).join("")
+      + `<p class="muted" style="margin-top:14px">Frist ändern: Notiz anklicken und Feld „Frist“ setzen (Format 2027-06 oder 2027-06-15).</p>`;
+  }
+  if (tab==="offen"){
+    const groups = nodes.filter(n => !n.template && (n.todos.length || n.checks.some(c=>!c.done)));
+    p.innerHTML = groups.map(n => `<h4><a class="link" onclick="select('${esc(n.id)}')">${esc(n.id)}</a></h4>` +
+      n.todos.map(t=>`<div class="item" style="padding:5px 0"><span class="pill geplant">ergänzen</span><span style="flex:1;font-size:13px">${esc(t.text)}</span></div>`).join("") +
+      n.checks.filter(c=>!c.done).map(c=>checkbox(n,c)).join("")).join("") || `<p class="muted">Nichts offen.</p>`;
+  }
+  if (tab==="claude"){
+    const rows = (DATA.activity||[]).slice().reverse();
+    const days = [...Array(14)].map((_,i)=>{ const d=new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()-13+i); return d; });
+    const per = days.map(d => rows.filter(r=>{const t=new Date(r.ts); return t>=d && t<new Date(d.getTime()+864e5);}).length);
+    const max = Math.max(1,...per);
+    const byProj = {}; rows.forEach(r=>{ byProj[r.project]=(byProj[r.project]||0)+1; });
+    p.innerHTML = `<h4>Letzte 14 Tage</h4><div class="heat">${per.map(v=>`<i style="height:${v/max*100}%" title="${v}"></i>`).join("")}</div>
+      <div class="row muted" style="justify-content:space-between"><span>${days[0].getDate()}.${days[0].getMonth()+1}.</span><span>heute</span></div>
+      <h4>Nach Projekt</h4><div class="row">${Object.entries(byProj).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<span class="chip" onclick="byId['${esc(k)}']&&select('${esc(k)}')">${esc(k)} · ${v}</span>`).join("")||'<span class="muted">Noch keine Aktivität. Sobald Claude Code eine Datei ändert, erscheint sie hier.</span>'}</div>
+      <h4>Verlauf</h4>` + rows.slice(0,80).map(r=>`<div class="item"><div class="when" style="font-weight:400" title="${esc(r.ts)}">${rel(new Date(r.ts).getTime())}</div>
+        <div style="flex:1;min-width:0"><b>${byId[r.project]?`<a class="link" onclick="select('${esc(r.project)}')">${esc(r.project)}</a>`:esc(r.project)}</b>
+        <div class="muted" style="overflow-wrap:anywhere">${esc(r.text || r.file.replace(/^\/Users\/[^/]+/,"~"))}</div></div></div>`).join("");
+  }
+  if (tab==="inbox"){
+    const items = nodes.filter(n=>n.area==="00 Inbox" && n.type!=="moc");
+    p.innerHTML = `<h4>Schnell notieren</h4>
+      <input class="t" id="inTitle" placeholder="Titel" ${dis}>
+      <textarea id="inText" rows="5" placeholder="Gedanke, Link, Aufgabe …" style="margin-top:8px" ${dis}></textarea>
+      <div class="row" style="margin-top:8px"><button class="btn" ${dis} onclick="addInbox()">In Inbox legen</button></div>
+      <h4>In der Inbox (${items.length})</h4>` + (items.map(n=>`<div class="item"><a class="link" onclick="select('${esc(n.id)}')">${esc(n.id)}</a><span class="muted" style="flex:1">${esc(n.summary.slice(0,80))}</span></div>`).join("") || `<p class="muted">Leer.</p>`);
+  }
+  renderStats();
+}
+function checkbox(n,c){
+  return `<label class="ck ${c.done?"done":""}"><input type="checkbox" ${c.done?"checked":""} ${dis}
+    onchange="api('/api/check',{path:${esc(JSON.stringify(n.path))},line:${c.line}})"><span>${esc(c.text)}</span></label>`;
+}
+async function addInbox(){
+  const title=$("inTitle").value, text=$("inText").value; if(!title && !text) return;
+  const r = await api("/api/inbox",{title,text}); if(r){ toast("In Inbox gelegt"); }
+}
+function renderStats(){
+  const act = projects().filter(n=>n.status==="aktiv").length;
+  const open = nodes.reduce((a,n)=>a+n.todos.length,0);
+  const next = nodes.filter(n=>n.deadline).map(n=>parseDeadline(n.deadline)).filter(d=>d&&d.date>new Date()).sort((a,b)=>a.date-b.date)[0];
+  $("stats").innerHTML = `<div><b>${nodes.filter(visible).length}</b>Notizen</div><div><b>${act}</b>aktive Projekte</div><div><b>${open}</b>zu ergänzen</div>${next?`<div><b>${next.label}</b>nächste Frist</div>`:""}`;
+}
+function renderChips(){
+  $("chips").innerHTML = Object.entries(AREAS).filter(([k])=>k!=="Home").map(([k,v]) =>
+    `<span class="chip ${hidden.has(k)?"off":""}" onclick="toggleArea('${k}')"><i style="background:var(${v.c})"></i>${v.label}</span>`).join("");
+}
+function toggleArea(k){ hidden.has(k)?hidden.delete(k):hidden.add(k); heat=1; renderChips(); renderStats(); }
+
+// ---------------------------------------------------------------- Detail
+function select(id){
+  selected = id; const d = $("detail");
+  if(!id){ d.classList.remove("open"); return; }
+  const n = byId[id]; if(!n) return;
+  const back = edges.filter(e=>e.target===id).map(e=>e.source);
+  const out = n.links.filter(l=>byId[l]);
+  const acts = (DATA.activity||[]).filter(r=>r.project===id).slice(-6).reverse();
+  d.innerHTML = `<button class="close" onclick="select(null)">✕</button>
+    <div class="muted">${esc(n.folder)}</div>
+    <h2 style="margin:4px 0 0;font-size:19px">${esc(n.id)}</h2>
+    <div class="kv">
+      <span>Status</span>${statusSelect(n)}
+      <span>Frist</span>${field(n,"deadline",n.deadline,"z. B. 2027-06")}
+      <span>Nächster Schritt</span>${field(n,"next_step",n.next,"…")}
+    </div>
+    <div class="row"><button class="btn" onclick="openObsidian(byId['${esc(n.id)}'])">Notiz öffnen</button><span class="muted">oder Doppelklick im Graphen</span></div>
+    ${n.summary?`<div class="summary">${esc(n.summary)}</div>`:""}
+    ${docsBlock(n)}
+    ${n.todos.length?`<h4>Zu ergänzen</h4>`+n.todos.map(t=>`<div class="muted" style="padding:3px 0">• ${esc(t.text)}</div>`).join(""):""}
+    ${n.checks.length?`<h4>Aufgaben</h4>`+n.checks.map(c=>checkbox(n,c)).join(""):""}
+    <h4>Verlauf-Eintrag</h4>
+    <div class="row"><input class="t" id="logIn" placeholder="Was ist passiert?" style="flex:1" ${dis}><button class="btn ghost" ${dis} onclick="addLog('${esc(n.path)}')">+</button></div>
+    ${acts.length?`<h4>Claude zuletzt</h4>`+acts.map(r=>`<div class="muted" style="padding:2px 0">${rel(new Date(r.ts).getTime())} · ${esc(r.text||r.file.split("/").pop())}</div>`).join(""):""}
+    ${out.length?`<h4>Verlinkt</h4><div class="row">`+out.map(l=>`<span class="chip" onclick="select('${esc(l)}')"><i style="background:var(${AREAS[byId[l].area].c})"></i>${esc(l)}</span>`).join("")+"</div>":""}
+    ${back.length?`<h4>Erwähnt in</h4><div class="row">`+back.map(l=>`<span class="chip" onclick="select('${esc(l)}')"><i style="background:var(${AREAS[byId[l].area].c})"></i>${esc(l)}</span>`).join("")+"</div>":""}`;
+  d.classList.add("open"); d.scrollTop = 0;
+}
+function docsBlock(n){
+  const all = ((DATA.docs||{})[n.id]||[]).filter(d=>!d.backup);
+  if(!all.length) return "";
+  const icon = f => ({pdf:"PDF",docx:"DOC",doc:"DOC",xlsx:"XLS",pptx:"PPT",html:"WEB",mp4:"VID",wav:"AUD",md:"MD"})[f.split(".").pop().toLowerCase()]||"DAT";
+  return `<h4>Dokumente (${all.length})</h4>` + all.slice(0,25).map(d=>`<div class="item" style="padding:5px 0">
+      <span class="pill">${icon(d.name)}</span>
+      <a class="link" style="flex:1;overflow-wrap:anywhere" title="${esc(d.dir)}" onclick='openDoc(${esc(JSON.stringify(d.path))})'>${esc(d.name)}</a>
+      <span class="muted">${new Date(d.mtime*1000).toLocaleDateString("de-AT")}</span></div>`).join("")
+    + (all.length>25?`<div class="muted">… und ${all.length-25} weitere in der Notiz „Dokumente ${esc(n.id)}“</div>`:"");
+}
+async function openDoc(path){
+  if(!LIVE) return toast("Nur-Lesen: Brain.command starten");
+  const r = await fetch("/api/open",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({path})});
+  toast(r.ok ? "Wird geöffnet …" : "Konnte Datei nicht öffnen");
+}
+async function addLog(path){ const t=$("logIn").value.trim(); if(!t) return; if(await api("/api/log",{path,text:t})) toast("Eingetragen"); }
+
+// ---------------------------------------------------------------- Live
+async function refresh(force){
+  if(!LIVE) return;
+  try{
+    const v = await (await fetch("/api/version")).json();
+    $("liveDot").classList.remove("off"); $("liveTxt").textContent = "live";
+    if (v.code && window.__code && v.code !== window.__code) return location.reload();
+    window.__code = v.code;
+    if(!force && v.version === DATA.version) return;
+    const active = document.activeElement;
+    if(!force && active && /INPUT|TEXTAREA|SELECT/.test(active.tagName)) return;
+    ingest(await (await fetch("/api/graph")).json());
+    renderSide(); if(selected) select(byId[selected]?selected:null);
+  }catch(e){ $("liveDot").classList.add("off"); $("liveTxt").textContent = "Server aus"; }
+}
+ingest(DATA);
+for (let i=0;i<500;i++) tick();
+resize(); renderChips(); renderSide(); requestAnimationFrame(draw);
+if(LIVE){ $("liveTxt").textContent="live"; setInterval(refresh, 2500); }
+else { $("liveDot").classList.add("off"); $("liveTxt").textContent = "Stand " + DATA.generated; $("banner").hidden=false; }
+</script>
+</body>
+</html>

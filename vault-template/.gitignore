@@ -1,0 +1,8 @@
+*.zip
+linkedin-export/
+.obsidian/workspace*.json
+.obsidian/cache
+.DS_Store
+__pycache__/
+Brain.html
+.brain/server.log

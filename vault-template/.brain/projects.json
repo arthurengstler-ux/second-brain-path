@@ -1,0 +1,53 @@
+{
+  "_hinweis": "rules: ordnet Dateipfade einem Projekt (Notizname) zu, erste passende Regel gewinnt; project \"\" = bewusst ignorieren. scan: wo brain.py docs nach Dokumenten sucht.",
+  "owner": "Mein",
+  "rules": [
+    {
+      "match": "(?i)passw|1password|recovery|kontoauszug",
+      "regex": true,
+      "project": ""
+    },
+    {
+      "match": "~/Desktop/Beispielprojekt",
+      "project": "Beispielprojekt"
+    },
+    {
+      "match": "/(Beispiel_|beispiel-)[^/]*$",
+      "regex": true,
+      "project": "Beispielprojekt"
+    }
+  ],
+  "scan": {
+    "roots": [
+      "~/Desktop",
+      "~/Downloads"
+    ],
+    "max_depth": 4,
+    "extensions": [
+      "docx",
+      "doc",
+      "pdf",
+      "xlsx",
+      "xls",
+      "pptx",
+      "key",
+      "pages",
+      "numbers",
+      "html",
+      "txt",
+      "md",
+      "mp4",
+      "m4a",
+      "wav",
+      "mp3",
+      "ics",
+      "csv"
+    ],
+    "skip_dirs": [
+      "node_modules",
+      ".git",
+      ".next",
+      "Library"
+    ]
+  }
+}
