@@ -2,7 +2,7 @@
 
 **A guided path that lets Claude Code build you a second brain in about an hour. You type one command, Claude does the rest and only asks when a real decision is yours.**
 
-Works on **macOS, Windows and Linux.** [![test](https://github.com/arthurengstler-ux/second-brain-path/actions/workflows/test.yml/badge.svg)](https://github.com/arthurengstler-ux/second-brain-path/actions/workflows/test.yml)
+Works on **macOS, Windows and Linux.** Notes in **English or German**. [![test](https://github.com/arthurengstler-ux/second-brain-path/actions/workflows/test.yml/badge.svg)](https://github.com/arthurengstler-ux/second-brain-path/actions/workflows/test.yml)
 
 ---
 

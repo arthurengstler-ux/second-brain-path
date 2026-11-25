@@ -64,6 +64,57 @@ DEFAULT_MESSAGE_TOPICS = [
 ]
 
 
+# Language of the generated notes ("language" in topics.json). File paths can be overridden with "paths".
+L10N = {
+    "en": dict(stamp="LinkedIn export, imported {d}", source="Source", who="Who to Ask", career="Career", people="05 People",
+               cv_path="02 Areas/Career/CV.md", cv_title="CV", cv_intro="Add your own items (projects, volunteering) outside the LinkedIn block.",
+               from_li="From LinkedIn", education="Education", positions="Positions", languages="Languages", skills="Skills",
+               present="present", to="to", back="Back to", notes="## Notes", no_details="No details", no_details_li="no details on LinkedIn",
+               sector="sector", good_for="## Good contact for", no_topic="no topic assigned yet",
+               history="## Contact history (LinkedIn messages)", message="message", messages="messages", topic="topic",
+               by_me="started by me", reply="got a reply", no_reply="**no reply**", by_them="started by them", not_answered="**not answered yet**",
+               moc_intro="{n} contacts, sorted by organization. Source: {stamp}.",
+               who_intro_ai="Generated from the {stamp}. {n} contacts were sorted by Claude (reason in italics), the rest by keyword rules. ",
+               who_intro_kw="Generated from the {stamp}. Topics are matched on company and position, so treat them as suggestions. ",
+               who_fix="Fix mistakes in .brain/assignments.json or topics.json and import again, not here.",
+               asked="## Asked, no reply yet", asked_intro="Candidates for a follow-up.", project_area="Project/area", all_sectors="## All sectors",
+               network="## LinkedIn network by sector",
+               rec_path="02 Areas/Career/Recruiter Messages.md", rec_title="Recruiter Messages",
+               rec_intro="Company and role are in the message on LinkedIn. Add your own assessment below the block.",
+               rec_head="| First message | Last | From | Messages | Status |", answered="answered", open="**open**", rec_none="No recruiter messages found.",
+               con_path="02 Areas/Career/LinkedIn Contacts.md", con_title="LinkedIn Contacts",
+               con_intro="{n} contacts as person notes in [[05 People]], topic index: [[{who}]].",
+               skipped="{n} contacts skipped on purpose (no name, or excluded by last name, sector, organization or person).",
+               follows="## People you follow (not connected)"),
+    "de": dict(stamp="LinkedIn-Export, importiert {d}", source="Quelle", who="Wen fragen", career="Karriere", people="05 People",
+               cv_path="02 Areas/Karriere/Lebenslauf.md", cv_title="Lebenslauf", cv_intro="Eigene Ergänzungen (Projekte, Engagement) außerhalb des LinkedIn-Blocks schreiben.",
+               from_li="Aus LinkedIn", education="Ausbildung", positions="Stationen", languages="Sprachen", skills="Kenntnisse",
+               present="heute", to="bis", back="Zurück zu", notes="## Notizen", no_details="Ohne Angabe", no_details_li="keine Angabe auf LinkedIn",
+               sector="Bereich", good_for="## Ansprechpartner für", no_topic="noch kein Thema zugeordnet",
+               history="## Kontaktverlauf (LinkedIn-Nachrichten)", message="Nachricht", messages="Nachrichten", topic="Thema",
+               by_me="von mir begonnen", reply="Antwort erhalten", no_reply="**keine Antwort**", by_them="vom Gegenüber begonnen", not_answered="**noch nicht beantwortet**",
+               moc_intro="{n} Kontakte, sortiert nach Organisation. Quelle: {stamp}.",
+               who_intro_ai="Erzeugt aus dem {stamp}. {n} Kontakte hat Claude eingeordnet (Begründung kursiv), der Rest folgt den Suchregeln. ",
+               who_intro_kw="Erzeugt aus dem {stamp}. Die Zuordnung läuft über Firma und Position, also nur ein Vorschlag. ",
+               who_fix="Fehler in .brain/assignments.json oder topics.json korrigieren und neu importieren, nicht hier.",
+               asked="## Angefragt, keine Antwort", asked_intro="Kandidaten für eine Nachfrage.", project_area="Projekt/Bereich", all_sectors="## Alle Bereiche",
+               network="## LinkedIn-Netzwerk nach Bereich",
+               rec_path="02 Areas/Karriere/Recruiter-Anfragen.md", rec_title="Recruiter-Anfragen",
+               rec_intro="Firma und Stelle stehen in der Nachricht auf LinkedIn. Eigene Einschätzung unter dem Block ergänzen.",
+               rec_head="| Erste Nachricht | Letzte | Von | Nachrichten | Status |", answered="beantwortet", open="**offen**", rec_none="Keine Recruiter-Nachrichten gefunden.",
+               con_path="02 Areas/Karriere/LinkedIn-Kontakte.md", con_title="LinkedIn-Kontakte",
+               con_intro="{n} Kontakte als Personennotizen in [[05 People]], Themen-Index: [[{who}]].",
+               skipped="{n} Kontakte bewusst ausgelassen (ohne Namen oder per Nachname, Bereich, Organisation oder Person ausgeschlossen).",
+               follows="## Gefolgte Personen (ohne Vernetzung)"),
+}
+SECTORS_DE = {"Military & Security": "Militär & Sicherheit", "Diplomacy & Trade": "Diplomatie & Außenhandel",
+              "Politics & Government": "Politik & Verwaltung", "Law": "Recht", "Finance & Consulting": "Finanz & Beratung",
+              "Academia & Research": "Wissenschaft & Hochschulen", "Media & Communications": "Medien & Kommunikation",
+              "Schools & Education": "Schule & Bildung", "Real Estate & Construction": "Immobilien & Bau",
+              "Health & Medicine": "Medizin & Gesundheit", "Sports": "Sport", "Tech & IT": "Tech & IT",
+              "Founders & Start-ups": "Gründer & Start-ups", "Companies & Trade": "Unternehmen & Handel"}
+
+
 # ---------------------------------------------------------------- reading
 class Export:
     """Several ZIPs or folders; later ones override files of the same name."""
@@ -193,7 +244,11 @@ def main():
     if not (vault / "05 People").is_dir():
         sys.exit(f"{vault} does not look like a second-brain vault (05 People is missing). Run setup_vault.py first.")
     cfg = json.loads(Path(os.path.expanduser(a.config)).read_text(encoding="utf-8")) if a.config else {}
-    sectors = cfg.get("sectors") or DEFAULT_SECTORS
+    lang = cfg.get("language", "en")
+    S = dict(L10N.get(lang, L10N["en"]))
+    S.update({k + "_path": v for k, v in (cfg.get("paths") or {}).items()})   # e.g. "cv": "" disables the CV
+    names_map = {**(SECTORS_DE if lang == "de" else {}), **(cfg.get("sector_names") or {})}
+    sectors = cfg.get("sectors") or [[names_map.get(n, n), rx] for n, rx in DEFAULT_SECTORS]
     topics = cfg.get("topics", [])
     msg_topics = cfg.get("message_topics") or DEFAULT_MESSAGE_TOPICS
     exclude = {x.lower() for x in a.exclude_lastname + cfg.get("exclude_lastnames", [])}
@@ -206,7 +261,7 @@ def main():
     ap_file = vault / ".brain" / "assignments.json"
     assigned = json.loads(ap_file.read_text(encoding="utf-8")) if ap_file.exists() else {}
     tby = {t["name"]: t for t in topics}
-    stamp = f"LinkedIn export, imported {TODAY}"
+    stamp = S["stamp"].format(d=TODAY)
 
     # ---- own profile URL (to tell my messages from theirs)
     me = ""
@@ -220,35 +275,35 @@ def main():
 
     # ---- CV
     prof = (ex.rows("Profile.csv") or [{}])[0]
-    if prof:
-        L = [f"Source: {stamp}.", ""]
+    if prof and S["cv_path"]:
+        L = [f"{S['source']}: {stamp}.", ""]
         if clean(prof.get("Headline")):
             L.append(f"**Headline:** {clean(prof['Headline'])}  ")
         if clean(prof.get("Summary")):
             L += ["", clean(prof["Summary"]), ""]
-        L += ["", "### Education"]
+        L += ["", f"### {S['education']}"]
         for e in ex.rows("Education.csv"):
-            span = " to ".join(x for x in (clean(e.get("Start Date")), clean(e.get("End Date"))) if x)
+            span = f" {S['to']} ".join(x for x in (clean(e.get("Start Date")), clean(e.get("End Date"))) if x)
             extra = "; ".join(x for x in (clean(e.get("Degree Name")), clean(e.get("Activities"))) if x)
             L.append(f"- **{clean(e['School Name'])}**" + (f", {span}" if span else "") + (f". {extra}" if extra else ""))
-        L += ["", "### Positions"]
+        L += ["", f"### {S['positions']}"]
         for p in ex.rows("Positions.csv"):
-            span = " to ".join(x for x in (clean(p.get("Started On")), clean(p.get("Finished On")) or "present") if x)
+            span = f" {S['to']} ".join(x for x in (clean(p.get("Started On")), clean(p.get("Finished On")) or S["present"]) if x)
             L.append(f"- **{clean(p['Company Name'])}**, {clean(p['Title'])}, {clean(p.get('Location'))}, {span}")
             if clean(p.get("Description")):
                 L.append(f"  {clean(p['Description'])}")
         langs = ex.rows("Languages.csv")
         if langs:
-            L += ["", "### Languages"] + [f"- {clean(l['Name'])}: {clean(l.get('Proficiency'))}" for l in langs]
+            L += ["", f"### {S['languages']}"] + [f"- {clean(l['Name'])}: {clean(l.get('Proficiency'))}" for l in langs]
         skills = [clean(s["Name"]) for s in ex.rows("Skills.csv")]
         if skills:
-            L += ["", "### Skills", ", ".join(skills)]
-        rel = "02 Areas/Career/CV.md"
-        text = read(vault / rel, f"---\ntype: cv\nstatus: active\ntags: [career, cv]\ncreated: {TODAY}\n---\n# CV\n\n"
-                    "Add your own items (projects, volunteering) outside the LinkedIn block.\n\n")
-        text = set_block(set_frontmatter(text, {"updated": TODAY}), "## From LinkedIn\n" + "\n".join(L), before="Back to")
-        if "[[Career]]" not in text:
-            text = text.rstrip() + "\n\nBack to [[Career]]\n"
+            L += ["", f"### {S['skills']}", ", ".join(skills)]
+        rel = S["cv_path"]
+        text = read(vault / rel, f"---\ntype: cv\nstatus: active\ntags: [career, cv]\ncreated: {TODAY}\n---\n# {S['cv_title']}\n\n"
+                    f"{S['cv_intro']}\n\n")
+        text = set_block(set_frontmatter(text, {"updated": TODAY}), f"## {S['from_li']}\n" + "\n".join(L), before=S["back"])
+        if f"[[{S['career']}]]" not in text:
+            text = text.rstrip() + f"\n\n{S['back']} [[{S['career']}]]\n"
         W.write(rel, text)
 
     # ---- contacts
@@ -273,7 +328,7 @@ def main():
             continue
         org, pos = clean(r.get("Company")).replace("|", "/"), clean(r.get("Position")).replace("|", "/")
         t = f"{org} | {pos}"
-        sector = "No details" if not org and not pos else next(n for n, rx in sectors if re.search(rx, t, re.I))
+        sector = S["no_details"] if not org and not pos else next(n for n, rx in sectors if re.search(rx, t, re.I))
         if (sector in excl_sectors or name.lower() in excl_people
                 or any(re.search(rx, org, re.I) for rx in excl_orgs)):
             skipped += 1
@@ -320,85 +375,84 @@ def main():
                 recruiters.append((n, info))
 
     def conv_line(i):
-        s = f"- {i['first']}" + (f" to {i['last']}" if i["last"] != i["first"] else "")
-        s += f": {i['n']} message{'s' if i['n'] > 1 else ''}" + (f", topic: {i['tp']}" if i["tp"] else "")
+        s = f"- {i['first']}" + (f" {S['to']} {i['last']}" if i["last"] != i["first"] else "")
+        s += f": {i['n']} {S['messages'] if i['n'] > 1 else S['message']}" + (f", {S['topic']}: {i['tp']}" if i["tp"] else "")
         if i["by_me"]:
-            s += ", started by me, " + ("got a reply" if i["answered"] else "**no reply**")
+            s += f", {S['by_me']}, " + (S["reply"] if i["answered"] else S["no_reply"])
         else:
-            s += ", started by them" + ("" if i["answered"] else ", **not answered yet**")
+            s += f", {S['by_them']}" + ("" if i["answered"] else f", {S['not_answered']}")
         return s
 
     for p in people:
         rel = p["path"].relative_to(vault).as_posix()
         text = read(p["path"], f"---\ntype: person\nstatus: contact\ntags: [person, linkedin]\ncreated: {TODAY}\n---\n# {p['name']}\n\n"
-                    f"## Notes\n-\n\nBack to [[05 People]]\n")
+                    f"{S['notes']}\n-\n\n{S['back']} [[05 People]]\n")
         fields = {"sector": q(p["sector"]), "topics": q([x["name"] for x in p["topics"]]),
                   "organization": q(p["org"]), "position": q(p["pos"]), "linkedin": q(p["url"]),
                   "connected_on": p["since"] or '""'}
         if p["convs"]:
             fields["last_contact"] = max(i["last"] for i in p["convs"])
         text = set_frontmatter(text, fields)
-        role = ", ".join(x for x in (p["pos"], p["org"]) if x) or "no details on LinkedIn"
-        blk = [f"**LinkedIn:** {role} · sector [[{p['sector']}]]", "", "## Good contact for"]
-        blk += [f"- {x.get('link') or x['name']}" + (f" — {p['reason']}" if p["reason"] else "") for x in p["topics"]] or ["- no topic assigned yet"]
+        role = ", ".join(x for x in (p["pos"], p["org"]) if x) or S["no_details_li"]
+        blk = [f"**LinkedIn:** {role} · {S['sector']} [[{p['sector']}]]", "", S["good_for"]]
+        blk += [f"- {x.get('link') or x['name']}" + (f" — {p['reason']}" if p["reason"] else "") for x in p["topics"]] or [f"- {S['no_topic']}"]
         if p["convs"]:
-            blk += ["", "## Contact history (LinkedIn messages)"] + [conv_line(i) for i in sorted(p["convs"], key=lambda i: i["first"])]
-        W.write(rel, set_block(text, "\n".join(blk), before="## Notes"))
+            blk += ["", S["history"]] + [conv_line(i) for i in sorted(p["convs"], key=lambda i: i["first"])]
+        W.write(rel, set_block(text, "\n".join(blk), before=S["notes"]))
 
     # ---- overviews
-    line = lambda p: (f"- [[{p['name']}]] — " + (", ".join(x for x in (p["pos"], p["org"]) if x) or "no details")
+    line = lambda p: (f"- [[{p['name']}]] — " + (", ".join(x for x in (p["pos"], p["org"]) if x) or S["no_details"])
                       + (f" · *{p['reason']}*" if p.get("reason") else ""))
     groups = collections.defaultdict(list)
     for p in people:
         groups[p["sector"]].append(p)
-    order = [n for n, _ in sectors] + ["No details"]
+    order = [n for n, _ in sectors] + [S["no_details"]]
     for s in order:
         g = sorted(groups.get(s, []), key=lambda p: (p["org"].lower(), p["name"].lower()))
         if not g:
             continue
         rel = f"05 People/{s}/{s}.md"
         text = read(vault / rel, f"---\ntype: moc\nstatus: active\ntags: [moc, people]\ncreated: {TODAY}\n---\n# {s}\n\n")
-        W.write(rel, set_block(text, f"{len(g)} contacts, sorted by organization. Source: {stamp}.\n\n"
-                               + "\n".join(line(p) for p in g) + "\n\nBack to [[05 People]] · [[Who to Ask]]"))
+        W.write(rel, set_block(text, S["moc_intro"].format(n=len(g), stamp=stamp) + "\n\n"
+                               + "\n".join(line(p) for p in g) + f"\n\n{S['back']} [[05 People]] · [[{S['who']}]]"))
 
-    w = ["---", "type: moc", "status: active", "tags: [moc, people, network]", f"updated: {TODAY}", "---", "# Who to Ask", "",
-         f"Generated from the {stamp}. " + (f"{len(assigned)} contacts were sorted by Claude (reason in italics), the rest by keyword rules. "
-         if assigned else "Topics are matched on company and position, so treat them as suggestions. ") +
-         "Fix mistakes in .brain/assignments.json or topics.json and import again, not here.", ""]
+    w = ["---", "type: moc", "status: active", "tags: [moc, people, network]", f"updated: {TODAY}", "---", f"# {S['who']}", "",
+         (S["who_intro_ai"].format(stamp=stamp, n=len(assigned)) if assigned else S["who_intro_kw"].format(stamp=stamp)) + S["who_fix"], ""]
     open_req = sorted([(p, i) for p in people for i in p["convs"] if i["by_me"] and not i["answered"]], key=lambda x: x[1]["first"])
     if open_req:
-        w += ["## Asked, no reply yet", "Candidates for a follow-up.", ""]
+        w += [S["asked"], S["asked_intro"], ""]
         w += [f"- [[{p['name']}]] — {i['first']}" + (f", {i['tp']}" if i["tp"] else "") for p, i in open_req] + [""]
     for t in topics:
         g = sorted([p for p in people if t in p["topics"]], key=lambda p: (p["sector"], p["org"].lower()))
         if g:
-            w += [f"## {t['name']} ({len(g)})"] + ([f"Project/area: {t['link']}"] if t.get("link") else []) + [""] + [line(p) for p in g] + [""]
-    w += ["## All sectors"] + [f"- [[{s}]] ({len(groups[s])})" for s in order if groups.get(s)] + ["", "Back to [[05 People]]"]
-    W.write("05 People/Who to Ask.md", "\n".join(w) + "\n")
+            w += [f"## {t['name']} ({len(g)})"] + ([f"{S['project_area']}: {t['link']}"] if t.get("link") else []) + [""] + [line(p) for p in g] + [""]
+    w += [S["all_sectors"]] + [f"- [[{s}]] ({len(groups[s])})" for s in order if groups.get(s)] + ["", f"{S['back']} [[05 People]]"]
+    W.write(f"05 People/{S['who']}.md", "\n".join(w) + "\n")
 
     rel = "05 People/05 People.md"
     if (vault / rel).exists():
-        W.write(rel, set_block(read(vault / rel, ""), "## LinkedIn network by sector\n" +
+        W.write(rel, set_block(read(vault / rel, ""), S["network"] + "\n" +
                                "\n".join(f"- [[{s}]] ({len(groups[s])})" for s in order if groups.get(s))))
 
     # ---- career: recruiters, follows
-    rel = "02 Areas/Career/Recruiter Messages.md"
-    text = read(vault / rel, f"---\ntype: list\nstatus: active\ntags: [career]\ncreated: {TODAY}\n---\n# Recruiter Messages\n\n"
-                "Company and role are in the message on LinkedIn. Add your own assessment below the block.\n\n")
-    rows = ["| First message | Last | From | Messages | Status |", "|---|---|---|---|---|"]
-    rows += [f"| {i['first']} | {i['last']} | {n} | {i['n']} | " + ("answered" if i["answered"] else "**open**") + " |"
-             for n, i in sorted(recruiters, key=lambda x: x[1]["first"], reverse=True)]
-    W.write(rel, set_block(text, f"Source: {stamp}.\n\n" + ("\n".join(rows) if recruiters else "No recruiter messages found.")))
+    rel = S["rec_path"]
+    if rel:
+        text = read(vault / rel, f"---\ntype: list\nstatus: active\ntags: [career]\ncreated: {TODAY}\n---\n# {S['rec_title']}\n\n{S['rec_intro']}\n\n")
+        rows = [S["rec_head"], "|---|---|---|---|---|"]
+        rows += [f"| {i['first']} | {i['last']} | {n} | {i['n']} | " + (S["answered"] if i["answered"] else S["open"]) + " |"
+                 for n, i in sorted(recruiters, key=lambda x: x[1]["first"], reverse=True)]
+        W.write(rel, set_block(text, f"{S['source']}: {stamp}.\n\n" + ("\n".join(rows) if recruiters else S["rec_none"])))
 
     follows = [clean(r["FullName"]) for r in ex.rows("Member_Follows.csv") if r.get("Status") == "Active"]
-    rel = "02 Areas/Career/LinkedIn Contacts.md"
-    text = read(vault / rel, f"---\ntype: moc\nstatus: active\ntags: [career, network, linkedin]\ncreated: {TODAY}\n---\n# LinkedIn Contacts\n\n")
-    blk = [f"Source: {stamp}. {len(people)} contacts as person notes in [[05 People]], topic index: [[Who to Ask]]."]
-    if skipped:
-        blk.append(f"{skipped} contacts skipped on purpose (no name, or excluded by last name, sector, organization or person).")
-    if follows:
-        blk += ["", "## People you follow (not connected)", ", ".join(follows)]
-    W.write(rel, set_block(text, "\n".join(blk) + "\n\nBack to [[Career]]"))
+    rel = S["con_path"]
+    if rel:
+        text = read(vault / rel, f"---\ntype: moc\nstatus: active\ntags: [career, network, linkedin]\ncreated: {TODAY}\n---\n# {S['con_title']}\n\n")
+        blk = [f"{S['source']}: {stamp}. " + S["con_intro"].format(n=len(people), who=S["who"])]
+        if skipped:
+            blk.append(S["skipped"].format(n=skipped))
+        if follows:
+            blk += ["", S["follows"], ", ".join(follows)]
+        W.write(rel, set_block(text, "\n".join(blk) + f"\n\n{S['back']} [[{S['career']}]]"))
 
     # ---- report
     print(f"{'(dry run) ' if a.dry_run else ''}{len(people)} contacts, {skipped} skipped, "

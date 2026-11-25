@@ -136,6 +136,7 @@ Both land as ZIP files in Downloads. Safari sometimes unzips them automatically.
 ## Step 5: Topics and what to leave out
 
 Create `VAULT/.brain/topics.json` following `REPO/config/topics.example.json`:
+- `language`: `"de"` if the person writes their notes in German (note names like `Wen fragen`, headings like `Ansprechpartner für`, German sector names), otherwise `"en"`
 - **one topic per project and area from steps 2 and 3**, with `link` pointing to the note, i.e. `[[Project name]]`. Leave out topics marked private.
 - `description`: one sentence on what the topic is about and what kind of help is wanted. Claude uses it in step 6 to sort contacts, so make it specific (“bachelor thesis on US trade policy; looking for interview partners”).
 - `regex`: words that would appear in the company or position of a helpful contact (fallback for contacts Claude has not sorted). Think broadly: for a thesis on energy policy, energy companies, ministries, research institutes and think tanks all fit.

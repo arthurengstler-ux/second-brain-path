@@ -23,7 +23,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))  # our own folder, for import_linkedin helpers
-from import_linkedin import DEFAULT_SECTORS, Export, clean, norm_url, safe_name  # noqa: E402
+from import_linkedin import DEFAULT_SECTORS, SECTORS_DE, Export, clean, norm_url, safe_name  # noqa: E402
 
 BATCH = 80
 HEADER = """# Contact batch {n} of {total}
@@ -68,7 +68,8 @@ def cmd_prepare(a, vault, out):
     topics = cfg.get("topics", [])
     if not topics:
         sys.exit("topics.json has no topics yet: define them first (PATH.md step 5)")
-    sectors = cfg.get("sectors") or DEFAULT_SECTORS
+    names_map = {**(SECTORS_DE if cfg.get("language") == "de" else {}), **(cfg.get("sector_names") or {})}
+    sectors = cfg.get("sectors") or [[names_map.get(n, n), rx] for n, rx in DEFAULT_SECTORS]
     ex_last = {x.lower() for x in cfg.get("exclude_lastnames", [])}
     ex_people = {x.lower() for x in cfg.get("exclude_people", [])}
     ex_orgs = [x for x in cfg.get("exclude_organizations", []) if x]
