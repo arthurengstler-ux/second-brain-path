@@ -2,7 +2,7 @@
 
 **A guided path that lets Claude Code build you a second brain in about an hour. You type one command, Claude does the rest and only asks when a real decision is yours.**
 
-Works on **macOS, Windows and Linux.**
+Works on **macOS, Windows and Linux.** [![test](https://github.com/arthurengstler-ux/second-brain-path/actions/workflows/test.yml/badge.svg)](https://github.com/arthurengstler-ux/second-brain-path/actions/workflows/test.yml)
 
 ---
 
@@ -38,7 +38,7 @@ flowchart LR
 | “I'm writing a thesis on …, the file is in …” | Claude starts with your *active projects, upcoming deadlines, next steps, recent work* |
 | Past Claude sessions scattered and forgotten | Your earlier work in Claude Code **and in the Claude app or claude.ai** becomes project notes, with chat titles and dates. You choose what goes in and what stays private |
 | Hunting for files | One note per project, `Documents <project>`, listing every related file on Desktop, Downloads and Documents |
-| “Who could I ask for an interview?” | `Who to Ask.md`: your LinkedIn contacts, sorted by topic and project |
+| “Who could I ask for an interview?” | `Who to Ask.md`: your LinkedIn contacts, **sorted by Claude** by topic and project, each with a one-line reason |
 | Forgotten follow-ups | A list of requests that never got a reply, and of open recruiter messages |
 | CV somewhere | Your CV from LinkedIn as a note, refreshed on every import |
 | What did Claude do last week? | `Claude Activity.md` and a log per project |
@@ -121,7 +121,7 @@ The full version is in [`PATH.md`](PATH.md). That file is also the instruction s
 | 3 | Projects | One note per project with status, deadline, next step; rules for which files belong where | say where your files are |
 | 4 | LinkedIn export | Claude tells you where to request it | request it (small archive ~10 min, full ≤ 24 h) |
 | 5 | Topics & exclusions | Claude derives from your projects which contacts fit what, then shows the numbers | strike people, companies, sectors or topics you don't want |
-| 6 | Import | CV, one note per contact, `Who to Ask`, recruiters, contact history | look at a few samples |
+| 6 | Sort & import | Claude reads your contacts (role and organization only) and decides who fits which project; then CV, one note per contact, `Who to Ask`, recruiters, contact history | look at a few samples |
 | 7 | Connect Claude | Hooks and CLAUDE.md, so Claude reads and maintains the vault in every session | approve once |
 | 8 | Wrap-up | Summary and a weekly routine | – |
 
@@ -132,6 +132,7 @@ PATH.md                             the steps (for Claude and for people)
 .claude/skills/second-brain-path    turns them into the /second-brain-path command
 scripts/setup_vault.py              creates the vault (never overwrites anything)
 scripts/sources.py                  Claude Code history + Claude app export → candidates you accept, rename, merge, mark private or drop
+scripts/classify.py                 Claude sorts your contacts into topics, with a reason each (no names involved)
 scripts/import_linkedin.py          LinkedIn export → notes (idempotent, standard library only)
 config/topics.example.json          example: which contacts fit which project
 vault-template/                     PARA structure, templates, dashboard (brain.py), Obsidian plugin
@@ -139,6 +140,7 @@ claude/                             hooks (macOS/Linux and Windows) and a CLAUDE
 tests/make_fake_export.py           a made-up export to try things out
 tests/make_fake_claude_app_export.py a made-up Claude app export
 tests/smoke_test.py                 runs the whole path on made-up data, on any OS
+.github/workflows/test.yml          runs the smoke test on macOS, Windows and Linux on every push
 ```
 
 Try the whole thing on made-up data, without touching your own files:
@@ -160,7 +162,7 @@ python3 -I tests/smoke_test.py      # Windows: py -3 -I tests/smoke_test.py
 ## Lessons learned while building it
 
 - **Never delete and recreate folders** inside a synced folder (iCloud, OneDrive). The sync brings old versions back as “Name 2.md”. The importer therefore only edits files in place.
-- **Automatic matching is a suggestion.** It works on company and position. Spot checks pay off, and fixes belong in `topics.json`, not in the generated lists.
+- **Keyword matching is not enough.** It put a car dealer's “mobility advisor” under a public-transport topic. That's why Claude now sorts the contacts itself, with a reason per person, and the keyword rules are only a fallback.
 - **Many nodes need a damped graph layout.** With 350 contacts the points flew off screen, so force and speed are capped.
 
 ## License

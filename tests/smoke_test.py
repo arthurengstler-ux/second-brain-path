@@ -113,6 +113,21 @@ try:
     check("Anna Sample" not in names and "Tom Empty" not in names, "excluded people not imported")
     check((vault / "02 Areas/Career/CV.md").exists(), "CV written")
 
+    print("classify.py (Claude sorts contacts)")
+    check("Paul Probe" in who.split("## University application")[-1], "before: keyword rule puts the professor under University application")
+    run(REPO / "scripts/classify.py", "prepare", "--vault", vault, "--zip", tmp / "export.zip", "--config", tmp / "topics.json")
+    batch = (vault / ".brain/classify/batch-01.md").read_text(encoding="utf-8")
+    check("Erika" not in batch and "Probe" not in batch, "batches contain no names")
+    ids = {l.split(" | ")[2]: l.split(" | ")[0] for l in batch.splitlines() if " | " in l and l[0].isdigit()}
+    # what Claude would write: the trade commissioner fits the thesis, the professor fits nothing
+    (vault / ".brain/classify/batch-01.answers.json").write_text(json.dumps(
+        {ids["ADVANTAGE AUSTRIA"]: {"topics": ["Thesis"], "reason": "trade commissioner, sees export rules first-hand"}}), encoding="utf-8")
+    run(REPO / "scripts/classify.py", "merge", "--vault", vault, "--config", tmp / "topics.json")
+    run(*args)
+    who = (vault / "05 People/Who to Ask.md").read_text(encoding="utf-8")
+    check("sees export rules first-hand" in who, "Claude's reason shown in Who to Ask")
+    check("Paul Probe" not in who.split("## All sectors")[0], "contact Claude found unfitting is no longer suggested")
+
     print("brain.py")
     brain = vault / "scripts/brain.py"
     env_home = {"HOME": str(home), "USERPROFILE": str(home)}

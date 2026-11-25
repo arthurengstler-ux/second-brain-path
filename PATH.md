@@ -137,7 +137,8 @@ Both land as ZIP files in Downloads. Safari sometimes unzips them automatically.
 
 Create `VAULT/.brain/topics.json` following `REPO/config/topics.example.json`:
 - **one topic per project and area from steps 2 and 3**, with `link` pointing to the note, i.e. `[[Project name]]`. Leave out topics marked private.
-- `regex`: words that would appear in the company or position of a helpful contact. Think broadly: for a thesis on energy policy, energy companies, ministries, research institutes and think tanks all fit.
+- `description`: one sentence on what the topic is about and what kind of help is wanted. Claude uses it in step 6 to sort contacts, so make it specific (“bachelor thesis on US trade policy; looking for interview partners”).
+- `regex`: words that would appear in the company or position of a helpful contact (fallback for contacts Claude has not sorted). Think broadly: for a thesis on energy policy, energy companies, ministries, research institutes and think tanks all fit.
 - `sectors`: whole sectors that always fit, e.g. `Diplomacy & Trade` for a thesis on trade policy
 
 Then do a dry run (step 6, `--dry-run`) and show the person the numbers per sector and topic. **Ask what to leave out:**
@@ -154,6 +155,24 @@ PY -I REPO/scripts/import_linkedin.py --vault VAULT --config VAULT/.brain/topics
   --zip <Downloads>/Basic_LinkedInDataExport_<date>.zip <Downloads>/Complete_LinkedInDataExport_<date>.zip --dry-run
 ```
 
+### Let Claude sort the contacts (recommended)
+
+Keyword rules are rough: a car dealer's “mobility advisor” lands under a transport topic, an ambassador without the word “trade” is missed. So Claude does the sorting itself:
+
+```bash
+PY -I REPO/scripts/classify.py prepare --vault VAULT --zip <exports> --config VAULT/.brain/topics.json
+```
+
+This writes `VAULT/.brain/classify/batch-01.md`, `batch-02.md`, … with 80 contacts each, as `id | position | organization` (no names). **Read every batch and write the answer file it asks for** (`batch-NN.answers.json`): only contacts that realistically fit a topic, each with a reason of at most 12 words. Judge by role and organization, be strict, most contacts fit nothing. Then:
+
+```bash
+PY -I REPO/scripts/classify.py merge --vault VAULT --config VAULT/.brain/topics.json
+```
+
+`merge` reports problems (unknown topics, missing batches). Fix them and merge again. From now on the import uses Claude's choices for every sorted contact, shows the reason in `Who to Ask.md`, and only falls back to the keyword rules for contacts nobody has sorted yet. With a newer export later, run `prepare` again and sort only the new batches.
+
+### Run the import
+
 When the numbers look right, run it again without `--dry-run`. The script writes:
 
 | File | Content |
@@ -165,7 +184,7 @@ When the numbers look right, run it again without `--dry-run`. The script writes
 | `02 Areas/Career/Recruiter Messages.md` | recruiter messages and their status |
 | `02 Areas/Career/LinkedIn Contacts.md` | numbers and people you follow |
 
-**Quality check (important):** Read `Who to Ask.md` and spot-check five people per topic. Fix clear mismatches through `topics.json` and run the import again. Do not edit the generated lists by hand. If something should have been excluded but was already imported, tell the person which notes to delete; the script itself never deletes. Then report:
+**Quality check (important):** Read `Who to Ask.md` and spot-check five people per topic. Fix clear mismatches in `VAULT/.brain/assignments.json` (or through `topics.json` for unsorted contacts) and run the import again. Do not edit the generated lists by hand. If something should have been excluded but was already imported, tell the person which notes to delete; the script itself never deletes. Then report:
 - the three most interesting contacts per project
 - requests without a reply that are worth a follow-up
 - open recruiter messages

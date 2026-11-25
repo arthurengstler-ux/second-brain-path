@@ -202,6 +202,10 @@ def main():
     excl_orgs = [x for x in cfg.get("exclude_organizations", []) if x]
     ex = Export([os.path.expanduser(z) for z in a.zip])
     W = Writer(vault, a.dry_run)
+    # Claude's own judgement (classify.py) beats the keyword rules for every contact it covers
+    ap_file = vault / ".brain" / "assignments.json"
+    assigned = json.loads(ap_file.read_text(encoding="utf-8")) if ap_file.exists() else {}
+    tby = {t["name"]: t for t in topics}
     stamp = f"LinkedIn export, imported {TODAY}"
 
     # ---- own profile URL (to tell my messages from theirs)
@@ -274,8 +278,12 @@ def main():
                 or any(re.search(rx, org, re.I) for rx in excl_orgs)):
             skipped += 1
             continue
-        tp = [x for x in topics if (x.get("regex") and re.search(x["regex"], t, re.I)) or sector in x.get("sectors", [])]
         url = r.get("URL", "")
+        hit = assigned.get(norm_url(url)) if url else None
+        if hit is not None:
+            tp, reason = [tby[n] for n in hit["topics"] if n in tby], hit.get("reason", "")
+        else:
+            tp, reason = [x for x in topics if (x.get("regex") and re.search(x["regex"], t, re.I)) or sector in x.get("sectors", [])], ""
         path = by_url.get(norm_url(url)) if url else None
         if not path and name in existing:
             path = existing[name]
@@ -283,7 +291,7 @@ def main():
             n2 = name if name not in used else f"{name} ({org[:30] or 'LinkedIn'})"
             path = people_dir / sector / f"{n2}.md"
         used.add(path.stem)
-        people.append(dict(name=path.stem, path=path, sector=sector, topics=tp, org=org, pos=pos, url=url,
+        people.append(dict(name=path.stem, path=path, sector=sector, topics=tp, reason=reason, org=org, pos=pos, url=url,
                            since=parse_date(r.get("Connected On", "")), convs=[]))
     by_norm = {norm_url(p["url"]): p for p in people if p["url"]}
 
@@ -332,13 +340,14 @@ def main():
         text = set_frontmatter(text, fields)
         role = ", ".join(x for x in (p["pos"], p["org"]) if x) or "no details on LinkedIn"
         blk = [f"**LinkedIn:** {role} · sector [[{p['sector']}]]", "", "## Good contact for"]
-        blk += [f"- {x.get('link') or x['name']}" for x in p["topics"]] or ["- no topic assigned yet"]
+        blk += [f"- {x.get('link') or x['name']}" + (f" — {p['reason']}" if p["reason"] else "") for x in p["topics"]] or ["- no topic assigned yet"]
         if p["convs"]:
             blk += ["", "## Contact history (LinkedIn messages)"] + [conv_line(i) for i in sorted(p["convs"], key=lambda i: i["first"])]
         W.write(rel, set_block(text, "\n".join(blk), before="## Notes"))
 
     # ---- overviews
-    line = lambda p: f"- [[{p['name']}]] — " + (", ".join(x for x in (p["pos"], p["org"]) if x) or "no details")
+    line = lambda p: (f"- [[{p['name']}]] — " + (", ".join(x for x in (p["pos"], p["org"]) if x) or "no details")
+                      + (f" · *{p['reason']}*" if p.get("reason") else ""))
     groups = collections.defaultdict(list)
     for p in people:
         groups[p["sector"]].append(p)
@@ -353,8 +362,9 @@ def main():
                                + "\n".join(line(p) for p in g) + "\n\nBack to [[05 People]] · [[Who to Ask]]"))
 
     w = ["---", "type: moc", "status: active", "tags: [moc, people, network]", f"updated: {TODAY}", "---", "# Who to Ask", "",
-         f"Generated from the {stamp}. Topics are matched on company and position, so treat them as suggestions. "
-         "Fix mistakes in the person's note (frontmatter `topics`) or in topics.json, not here.", ""]
+         f"Generated from the {stamp}. " + (f"{len(assigned)} contacts were sorted by Claude (reason in italics), the rest by keyword rules. "
+         if assigned else "Topics are matched on company and position, so treat them as suggestions. ") +
+         "Fix mistakes in .brain/assignments.json or topics.json and import again, not here.", ""]
     open_req = sorted([(p, i) for p in people for i in p["convs"] if i["by_me"] and not i["answered"]], key=lambda x: x[1]["first"])
     if open_req:
         w += ["## Asked, no reply yet", "Candidates for a follow-up.", ""]

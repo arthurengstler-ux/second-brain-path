@@ -1,5 +1,5 @@
 {
-  "_note": "topics: what a contact can help with. name = heading in 'Who to Ask', link = project note in the vault, regex = match in company or position, sectors = every contact in these sectors belongs to the topic. Claude generates this file from your projects during the path. 'sectors' and 'message_topics' are optional; the script has defaults. Exclusions: exclude_lastnames (e.g. family), exclude_people (full names), exclude_organizations (regex on company), exclude_sectors (whole sectors, e.g. \"Health & Medicine\"). Excluded contacts are never written; notes imported earlier are not deleted.",
+  "_note": "topics: what a contact can help with. name = heading in 'Who to Ask', link = project note in the vault, regex = match in company or position, sectors = every contact in these sectors belongs to the topic. Claude generates this file from your projects during the path. 'sectors' and 'message_topics' are optional; the script has defaults. Exclusions: exclude_lastnames (e.g. family), exclude_people (full names), exclude_organizations (regex on company), exclude_sectors (whole sectors, e.g. \"Health & Medicine\"). Excluded contacts are never written; notes imported earlier are not deleted. description: one sentence on what the topic is about and what kind of help is wanted; Claude uses it when sorting contacts (classify.py).",
   "exclude_lastnames": [],
   "exclude_people": [],
   "exclude_organizations": [],
@@ -7,6 +7,7 @@
   "topics": [
     {
       "name": "Thesis",
+      "description": "bachelor thesis on US trade policy and its effects on European exporters; looking for interview partners",
       "link": "[[Thesis]]",
       "regex": "econom|trade|tariff|geopoli|energy|climate",
       "sectors": [
@@ -15,12 +16,14 @@
     },
     {
       "name": "University application",
+      "description": "applying to business schools for next year; people who studied or teach there",
       "link": "[[University application]]",
       "regex": "admission|business school|universit|\\bETH\\b|\\bHSG\\b",
       "sectors": []
     },
     {
       "name": "Start-up",
+      "description": "building an app for flat hunting; founders, investors, real estate and product people",
       "link": "[[Start-up]]",
       "regex": "start-?up|venture|founder|angel",
       "sectors": [
@@ -29,6 +32,7 @@
     },
     {
       "name": "Politics",
+      "description": "active in a youth party organisation; politicians, staffers, policy people",
       "link": "[[Politics]]",
       "regex": "party|parliament|politi",
       "sectors": [
@@ -37,6 +41,7 @@
     },
     {
       "name": "Internships & jobs",
+      "description": "looking for a summer internship in finance, consulting or law",
       "link": "[[Career]]",
       "regex": "recruit|talent|\\bHR\\b|human resources",
       "sectors": [
@@ -46,6 +51,7 @@
     },
     {
       "name": "Press & public",
+      "description": "journalists and communications people for coverage or advice",
       "link": "",
       "regex": "journalist|editor|press officer|spokes|correspondent|anchor|host",
       "sectors": [
