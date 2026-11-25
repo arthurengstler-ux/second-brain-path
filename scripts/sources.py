@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Find projects and topics in what you already did with Claude Code, then let you choose what goes in.
 
-    PY -I scripts/sources.py scan   --vault VAULT [--claude-dir ~/.claude] [--home ~]
-    PY -I scripts/sources.py decide --vault VAULT 1=project 2=area 3=private 4=drop 5=project:"New name"
+    PY -I scripts/sources.py scan   --vault VAULT [--claude-dir ~/.claude] [--home ~] [--claude-export data-....zip]
+    PY -I scripts/sources.py decide --vault VAULT 1=project 2=area 3=private 4=drop 5=project:"New name" 6-9,12=project:"New name"
     PY -I scripts/sources.py apply  --vault VAULT
 
 scan    reads Claude Code's local history (~/.claude/projects/*/*.jsonl) and lists candidates:
         folders and git repos Claude worked in, session titles and dates, memory files, CLAUDE.md.
         Only metadata is read: titles, dates, file paths. Conversation contents are never read.
+        --claude-export adds the Claude app / claude.ai data export (Settings > Privacy > Export data,
+        a ZIP sent by email): app projects and chat titles with dates. Chat contents are never read.
         Results go to VAULT/.brain/candidates.json. Earlier decisions are kept on re-scan.
 decide  stores your choice per candidate number:
           project[:Name]  -> note in 01 Projects
@@ -15,6 +17,7 @@ decide  stores your choice per candidate number:
           keep            -> (memory / instructions) copy into 03 Resources/Claude Memory
           private         -> never written to the vault; paths are excluded from logging and doc scans
           drop            -> ignore
+        Several numbers with the same name are merged into one note: 6-9,12=project:"Thesis"
 apply   writes the chosen notes and rules. Never deletes anything. Safe to run again.
 
 Python standard library only. Works on macOS, Windows and Linux.
@@ -129,6 +132,36 @@ def read_session(f, home):
                 paths=paths, cwd=cwd)
 
 
+def read_claude_export(path):
+    """Claude app / claude.ai export (ZIP or folder): returns (projects, conversations). Metadata only."""
+    files = {}
+    if os.path.isdir(path):
+        for f in Path(path).rglob("*.json"):
+            files[f.name.lower()] = f.read_bytes
+    else:
+        import zipfile
+        z = zipfile.ZipFile(path)
+        for n in z.namelist():
+            if n.lower().endswith(".json"):
+                files[n.split("/")[-1].lower()] = (lambda n=n: z.read(n))
+    load = lambda name: json.loads(files[name]().decode("utf-8")) if name in files else []
+    projects, convs = [], []
+    for p in load("projects.json") or []:
+        if isinstance(p, dict) and p.get("uuid"):
+            projects.append(dict(uuid=p["uuid"], name=p.get("name") or "(untitled project)",
+                                 description=(p.get("description") or "").strip(), docs=len(p.get("docs") or []),
+                                 created=(p.get("created_at") or "")[:10], updated=(p.get("updated_at") or "")[:10]))
+    for c in load("conversations.json") or []:
+        if not isinstance(c, dict) or not c.get("uuid"):
+            continue
+        pr = c.get("project")
+        proj = c.get("project_uuid") or (pr.get("uuid") if isinstance(pr, dict) else None)
+        convs.append(dict(uuid=c["uuid"], title=(c.get("name") or "").strip() or "(untitled chat)",
+                          first=(c.get("created_at") or "")[:10], last=(c.get("updated_at") or c.get("created_at") or "")[:10],
+                          messages=len(c.get("chat_messages") or []), project=proj))
+    return projects, convs
+
+
 def frontmatter(text):
     m = re.match(r"^---\n(.*?)\n---\n?", text, re.S)
     meta = {}
@@ -160,7 +193,7 @@ def cmd_scan(a, vault, cfile):
             g = group_for(s["cwd"] + "/x", home, vault)
             if g:
                 score[g] += 2
-        sess = dict(id=s["id"], title=s["title"] or "(untitled)", first=s["first"], last=s["last"])
+        sess = dict(id=s["id"], title=s["title"] or "(untitled)", first=s["first"], last=s["last"], src="code")
         if score:
             top = score.most_common(1)[0][0]
             groups[top]["sessions"].append(sess)
@@ -188,6 +221,22 @@ def cmd_scan(a, vault, cfile):
         meta, _ = frontmatter(f.read_text(encoding="utf-8", errors="replace"))
         cands.append(dict(id="memory:" + f.stem, kind="memory", name=meta.get("name", f.stem),
                           path=posix(f), description=meta.get("description", ""), sessions=[], first="", last="", weight=0))
+    for exp in a.claude_export or []:
+        projects, convs = read_claude_export(os.path.expanduser(exp))
+        by_proj = collections.defaultdict(list)
+        for c in convs:
+            by_proj[c["project"]].append(dict(id=c["uuid"], title=c["title"], first=c["first"], last=c["last"], src="app"))
+        for p in projects:
+            ses = sorted(by_proj.pop(p["uuid"], []), key=lambda s: s["first"])
+            cands.append(dict(id="app-project:" + p["uuid"], kind="app project", name=p["name"], path="",
+                              description=p["description"][:300], docs=p["docs"], sessions=ses,
+                              first=ses[0]["first"] if ses else p["created"], last=ses[-1]["last"] if ses else p["updated"], weight=0))
+        for ses in by_proj.values():   # chats outside a project (or unknown project)
+            for s in sorted(ses, key=lambda s: s["first"]):
+                cands.append(dict(id="app-chat:" + s["id"], kind="app chat", name=s["title"], path="", sessions=[s],
+                                  first=s["first"], last=s["last"], weight=0))
+    if not a.claude_export:   # re-scan without the export: keep app candidates from before
+        cands += [c for c in old.values() if c["id"].startswith("app-")]
     g = cdir / "CLAUDE.md"
     if g.exists():
         cands.append(dict(id="instructions:global", kind="instructions", name="Global CLAUDE.md", path=posix(g),
@@ -207,34 +256,46 @@ def show(cands):
     for i, c in enumerate(cands, 1):
         titles = "; ".join(s["title"] for s in c["sessions"][-3:])
         extra = c.get("path") or ""
-        if c["kind"] == "memory":
-            extra = c.get("description", "")[:70]
+        if c["kind"] in ("memory", "app project") and c.get("description"):
+            extra = c["description"][:70] + ("  · " + titles[:60] if titles else "")
         elif titles:
             extra = (extra + "  · " if extra else "") + titles[:90]
         name = c.get("target_name") or c["name"]
         print(f"{i:>3}  {c['decision'] or '-':<9} {c['kind']:<12} {name[:34]:<34} {len(c['sessions']):>8}  {c['last']:<10}  {extra}")
     print("\nNext: sources.py decide --vault VAULT 1=project 2=area 3=private 4=drop  (then: sources.py apply)")
+    if any(c["kind"] == "app chat" for c in cands):
+        print("Merge chats into one note by giving them the same name: 12,15-18=project:\"Thesis\"")
 
 
 def cmd_decide(a, vault, cfile):
     cands = json.loads(cfile.read_text(encoding="utf-8"))
     for item in a.choices:
-        m = re.match(r"^(\d+)=(project|area|keep|private|drop)(?::(.+))?$", item)
+        m = re.match(r"^([\d,\- ]+)=(project|area|keep|private|drop)(?::(.+))?$", item)
         if not m:
-            sys.exit(f"cannot read '{item}'. Use e.g. 3=project or 3=project:\"Better name\"")
-        i = int(m.group(1))
-        if not 1 <= i <= len(cands):
-            sys.exit(f"there is no candidate {i}")
-        c = cands[i - 1]
-        if m.group(2) in ("project", "area") and c["kind"] in ("memory", "instructions"):
-            sys.exit(f"#{i} is a {c['kind']} file: use keep, private or drop")
-        if m.group(2) == "keep" and c["kind"] not in ("memory", "instructions"):
-            sys.exit(f"#{i}: 'keep' is for memory/instructions files; use project or area")
-        c["decision"] = m.group(2)
-        if m.group(3):
-            c["target_name"] = m.group(3).strip().strip('"')
+            sys.exit(f"cannot read '{item}'. Use e.g. 3=project, 3=project:\"Better name\" or 4-7,9=drop")
+        nums = []
+        for part in m.group(1).replace(" ", "").split(","):
+            lo, _, hi = part.partition("-")
+            if not lo.isdigit() or (hi and not hi.isdigit()):
+                sys.exit(f"cannot read '{part}' in '{item}'")
+            nums += range(int(lo), int(hi or lo) + 1)
+        for i in nums:
+            if not 1 <= i <= len(cands):
+                sys.exit(f"there is no candidate {i}")
+            decide_one(cands, i, m)
     cfile.write_text(json.dumps(cands, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
     show(cands)
+
+
+def decide_one(cands, i, m):
+    c = cands[i - 1]
+    if m.group(2) in ("project", "area") and c["kind"] in ("memory", "instructions"):
+        sys.exit(f"#{i} is a {c['kind']} file: use keep, private or drop")
+    if m.group(2) == "keep" and c["kind"] not in ("memory", "instructions"):
+        sys.exit(f"#{i}: 'keep' is for memory/instructions files; use project or area")
+    c["decision"] = m.group(2)
+    if m.group(3):
+        c["target_name"] = m.group(3).strip().strip('"')
 
 
 def safe(name):
@@ -278,9 +339,27 @@ def cmd_apply(a, vault, cfile):
         # private rules first so they always win
         cfg["rules"] = ([r] + rules) if project == "" else (rules + [r])
 
+    merged = {}   # several candidates with the same decision and name become one note
+    for c in cands:
+        if c.get("decision") in ("project", "area"):
+            key = (c["decision"], safe(c.get("target_name") or c["name"]))
+            if key in merged:
+                m = merged[key]
+                m["sessions"] = sorted(m["sessions"] + c["sessions"], key=lambda s: s["first"])
+                m["paths"] += [c["path"]] if c["path"] else []
+                m["app_projects"] += [c["name"]] if c["kind"] == "app project" else []
+                m["last"] = max(m["last"], c["last"])
+                c["_merged"] = True
+            else:
+                merged[key] = c
+                c["paths"] = [c["path"]] if c["path"] else []
+                c["app_projects"] = [c["name"]] if c["kind"] == "app project" else []
     for c in cands:
         d = c.get("decision")
         name = safe(c.get("target_name") or c["name"])
+        if c.pop("_merged", False):
+            done[d] += 1
+            continue
         if d == "private":
             if c["path"] and c["kind"] not in ("memory", "instructions"):
                 add_rule(c["path"], "")
@@ -300,13 +379,15 @@ def cmd_apply(a, vault, cfile):
                         "## Goal\n> [!todo] To fill in\n> What is this about, and what does done look like?\n\n## Next step\n\n## Log\n")
                 existing[name] = note
                 link_in(vault / folder / f"{folder}.md", name)
-            blk = ["## Claude Code sessions"]
-            if c["path"]:
-                blk.append(f"Folder: `{c['path']}`")
-            blk += [f"- {s['first']}" + (f" to {s['last']}" if s["last"] != s["first"] else "") + f": {s['title']}" for s in c["sessions"]]
+            blk = ["## Claude sessions"]
+            blk += [f"Folder: `{p}`" for p in c["paths"]]
+            blk += [f"Claude app project: {p}" for p in c["app_projects"]]
+            src = {"code": "Claude Code", "app": "Claude app"}
+            blk += [f"- {s['first']}" + (f" to {s['last']}" if s["last"] != s["first"] else "") + f": {s['title']}"
+                    + (f" ({src[s['src']]})" if s.get("src") in src else "") for s in c["sessions"]]
             write(note, set_block(text, "\n".join(blk)))
-            if c["path"]:
-                add_rule(c["path"], name)
+            for p in c["paths"]:
+                add_rule(p, name)
             done[d] += 1
         elif d == "keep":
             src = Path(os.path.expanduser(c["path"]))
@@ -324,6 +405,8 @@ def cmd_apply(a, vault, cfile):
                 done["keep"] += 1
     write(cfg_p, json.dumps(cfg, indent=2, ensure_ascii=False) + "\n")
     write(priv_p, json.dumps(priv, indent=2, ensure_ascii=False) + "\n")
+    for c in cands:
+        c.pop("paths", None), c.pop("app_projects", None)
     open_ = sum(1 for c in cands if not c.get("decision"))
     print(", ".join(f"{v} {k}" for k, v in done.items()) or "nothing to apply", f"· {open_} candidates still undecided")
 
@@ -336,6 +419,7 @@ def main():
     ap.add_argument("--vault", required=True)
     ap.add_argument("--claude-dir", default="~/.claude")
     ap.add_argument("--home", default="~")
+    ap.add_argument("--claude-export", action="append", help="Claude app / claude.ai export, ZIP or folder (repeatable)")
     a = ap.parse_intermixed_args()
     vault = Path(os.path.expandvars(os.path.expanduser(a.vault))).resolve()
     cfile = vault / ".brain" / "candidates.json"

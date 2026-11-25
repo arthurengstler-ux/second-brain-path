@@ -72,6 +72,31 @@ try:
     check(not any("Diary" in p.read_text(encoding="utf-8") for p in vault.rglob("*.md")), "private topic not written anywhere in the vault")
     check((vault / "03 Resources/Claude Memory/writing-style.md").exists(), "kept memory file copied")
 
+    print("sources.py with a Claude app export")
+    run(REPO / "tests/make_fake_claude_app_export.py", tmp / "claude-app.zip")
+    out = run(REPO / "scripts/sources.py", "scan", "--vault", vault, "--claude-dir", home / ".claude", "--home", home,
+              "--claude-export", tmp / "claude-app.zip")
+    check("SECRET" not in out, "chat and document contents not printed")
+    cands = json.loads((vault / ".brain/candidates.json").read_text(encoding="utf-8"))
+    idx = {c["name"]: i + 1 for i, c in enumerate(cands)}
+    check(cands[idx["Thesis"] - 1]["decision"] == "project", "earlier decisions kept on re-scan")
+    run(REPO / "scripts/sources.py", "decide", "--vault", vault,
+        f"{idx['Bachelor thesis']}=project:Bachelor thesis",
+        f"{idx['Cover letter for an internship']},{idx['Internship interview prep']}=project:Internship search",
+        str(idx["Doctor's appointment questions"]) + "=private")
+    run(REPO / "scripts/sources.py", "apply", "--vault", vault)
+    text = note.read_text(encoding="utf-8")
+    check("Thesis literature review (Claude Code)" in text and "Structure of chapter 2 (Claude app)" in text,
+          "Claude Code folder and app project merged into one note")
+    intern = vault / "01 Projects/Internship search/Internship search.md"
+    check(intern.exists() and "Cover letter" in intern.read_text(encoding="utf-8") and "interview prep" in intern.read_text(encoding="utf-8"),
+          "two app chats merged into one project")
+    allmd = " ".join(p.read_text(encoding="utf-8") for p in vault.rglob("*.md"))
+    check("Doctor" not in allmd and "SECRET" not in allmd, "private chat and all contents kept out of the vault")
+    run(REPO / "scripts/sources.py", "scan", "--vault", vault, "--claude-dir", home / ".claude", "--home", home)
+    cands = json.loads((vault / ".brain/candidates.json").read_text(encoding="utf-8"))
+    check(any(c["id"].startswith("app-chat:") and c["decision"] == "private" for c in cands), "app candidates survive a re-scan without the export")
+
     print("import_linkedin.py")
     run(REPO / "tests/make_fake_export.py", tmp / "export.zip")
     cfg = json.loads((REPO / "config/topics.example.json").read_text(encoding="utf-8"))

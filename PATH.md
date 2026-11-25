@@ -40,6 +40,7 @@ Then ask in **one** message:
 3. What are you working on right now? Projects with a goal and a deadline, e.g. a thesis, an application, a start-up.
 4. Which ongoing areas do you have, without an end date? E.g. school, university, job, politics, sports.
 5. Do you already have your LinkedIn export? If not, see step 4. It can run in parallel.
+6. Have you used the Claude app or claude.ai in the browser? If yes, **request the export now** (see “Claude app export” below), because it arrives by email and can take a while. Both exports can be requested right at the start and run in the background while you work through steps 1 to 3.
 
 ## Step 1: Create the vault and open it in Obsidian
 
@@ -54,20 +55,37 @@ Fill `Home.md` → `## Profile` with the answers from step 0: factual, three to 
 Then have the person open the vault in Obsidian:
 **Obsidian → Open folder as vault → VAULT.** Then **Settings → Community plugins → Turn on community plugins**, and enable **“Second Brain Dashboard”**. A brain icon appears on the left. It opens the graph, project cards, deadlines, open items and the Claude history.
 
-## Step 2: Bring in what you already did with Claude Code
+## Step 2: Bring in what you already did with Claude
 
-Skip this step if the person has never used Claude Code before.
+There are two sources. Use whichever the person has, or both.
+
+**Claude Code** keeps its history on the computer (`~/.claude/projects/`). Nothing to request.
+
+**Claude app export.** The Claude desktop app, the mobile app and claude.ai in the browser keep chats on Anthropic's servers, not on the computer. **No command can read them directly, so the person has to request an export.** Explain it like this:
+
+1. Open claude.ai in the browser or the Claude desktop app.
+2. Click your name or initials (bottom left) → **Settings** → **Privacy** → **Export data**.
+3. Anthropic sends an email with a download link. Download the ZIP (it is called something like `data-2026-11-25-....zip`) and save it, usually in Downloads. Download it soon, the link does not stay valid forever.
+4. On a Team or Enterprise plan, only owners or admins may be able to export. Then use Claude Code history only, or ask the admin.
+
+The ZIP contains `conversations.json` (all chats) and `projects.json` (app projects). The script reads only titles, dates and which project a chat belongs to. Chat texts and project files are never read into the vault. Safari may unzip it automatically; the folder works too.
+
+Then scan (leave out `--claude-export` if there is no app export):
 
 ```bash
-PY -I REPO/scripts/sources.py scan --vault VAULT
+PY -I REPO/scripts/sources.py scan --vault VAULT --claude-export <Downloads>/data-<date>.zip
 ```
 
-This reads Claude Code's local history (`~/.claude/projects/`) and lists **candidates**:
-- folders and git repos Claude worked in, with session titles and dates
-- sessions that could not be tied to a folder
+This lists **candidates**:
+- folders and git repos Claude Code worked in, with session titles and dates
+- Claude Code sessions that could not be tied to a folder
+- **app projects** from the Claude app, with the titles of their chats
+- **single app chats** outside a project
 - memory files and the global `CLAUDE.md`
 
 Only metadata is read: titles, dates, file paths. Conversation contents are never read or copied.
+
+**Many single chats?** Group them before asking: read the titles, suggest a handful of topics (e.g. “Internship search: 12, 15–18”) and ask the person to confirm. Chats about health, family or relationships: suggest `private` or `drop`, never a project.
 
 **Show the list to the person exactly as printed, then ask for a decision on every line.** Offer these choices and explain them in one sentence each:
 
@@ -82,11 +100,11 @@ Only metadata is read: titles, dates, file paths. Conversation contents are neve
 Merge the answers with the step 0 answers (a project from step 0 that matches a candidate is the same project; use the person's name for it). Then:
 
 ```bash
-PY -I REPO/scripts/sources.py decide --vault VAULT 1=project 2=project:"Thesis" 3=private 4=drop 9=keep
+PY -I REPO/scripts/sources.py decide --vault VAULT 1=project 2=project:"Thesis" 3=private 4=drop 9=keep 12,15-18=project:"Internship search"
 PY -I REPO/scripts/sources.py apply  --vault VAULT
 ```
 
-Running `scan` again later keeps earlier decisions and only adds new candidates.
+Several numbers with the same name become one note. A Claude Code folder and an app project about the same thing can be merged that way, too. Running `scan` again later keeps earlier decisions and only adds new candidates; app candidates are kept even if the export is not passed again.
 
 ## Step 3: Projects and areas
 
@@ -175,6 +193,6 @@ Sum up for the person:
 - how many notes and contacts were created, and what was left out
 - where `Who to Ask.md` is
 - three things that are useful right away
-- the routine: once a week, go through the weekly review list in `Home.md`. Every few months, run `sources.py scan` again and get a new LinkedIn export (steps 2 and 6).
+- the routine: once a week, go through the weekly review list in `Home.md`. Every few months, run `sources.py scan` again (with a fresh Claude app export if the person uses the app) and get a new LinkedIn export (steps 2 and 6).
 
 Final commit in the vault: `Second brain: path completed`.

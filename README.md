@@ -24,7 +24,7 @@ A **second brain**: an Obsidian vault of Markdown notes that Claude reads automa
 ```mermaid
 flowchart LR
     A[LinkedIn export] -->|import_linkedin.py| V[(Second brain<br/>Obsidian vault)]
-    H[Your Claude Code<br/>history] -->|sources.py<br/>you pick what goes in| V
+    H[Your Claude Code history<br/>+ Claude app export] -->|sources.py<br/>you pick what goes in| V
     P[Your projects<br/>and files] -->|path, step 3| V
     V -->|SessionStart hook| C[Claude Code<br/>knows projects, deadlines,<br/>files, contacts]
     C -->|PostToolUse hook<br/>+ log entries| V
@@ -36,7 +36,7 @@ flowchart LR
 | Before | After |
 |---|---|
 | “I'm writing a thesis on …, the file is in …” | Claude starts with your *active projects, upcoming deadlines, next steps, recent work* |
-| Past Claude sessions scattered and forgotten | Your earlier Claude Code work becomes project notes, with session titles and dates. You choose what goes in and what stays private |
+| Past Claude sessions scattered and forgotten | Your earlier work in Claude Code **and in the Claude app or claude.ai** becomes project notes, with chat titles and dates. You choose what goes in and what stays private |
 | Hunting for files | One note per project, `Documents <project>`, listing every related file on Desktop, Downloads and Documents |
 | “Who could I ask for an interview?” | `Who to Ask.md`: your LinkedIn contacts, sorted by topic and project |
 | Forgotten follow-ups | A list of requests that never got a reply, and of open recruiter messages |
@@ -86,6 +86,17 @@ Then type inside Claude Code:
 /second-brain-path
 ```
 
+### Mostly used the Claude app or claude.ai so far?
+
+Then your chats are on Anthropic's servers, not on your computer, and **you need to request an export first**. Do it right at the start, it arrives by email:
+
+1. Open claude.ai or the Claude desktop app.
+2. Click your name (bottom left) → **Settings** → **Privacy** → **Export data**.
+3. Download the ZIP from the email (e.g. `data-2026-11-25-....zip`) and keep it in Downloads.
+4. When the path reaches step 2, tell Claude where the ZIP is.
+
+Only chat titles, dates and project names are used. Chat contents never go into the vault, and you decide for every project and chat whether it goes in, stays private or is dropped. On Team or Enterprise plans, exporting may be limited to admins.
+
 ### What differs per operating system
 
 You don't need to do anything about this, Claude handles it. For reference:
@@ -106,7 +117,7 @@ The full version is in [`PATH.md`](PATH.md). That file is also the instruction s
 |---|---|---|---|
 | 0 | Check & get to know you | Claude checks Python, git and Obsidian, then asks about your name, projects and areas | answer ~5 questions |
 | 1 | Create the vault | PARA folders, templates, dashboard, git; open it in Obsidian | enable the plugin once |
-| 2 | Your Claude history | Claude lists the folders, repos and sessions you already worked on, plus memory files | mark each one: project, area, keep, **private** or drop |
+| 2 | Your Claude history | Claude lists the folders, repos and sessions from Claude Code, the projects and chats from your **Claude app export**, plus memory files | request the app export; mark each item: project, area, keep, **private** or drop |
 | 3 | Projects | One note per project with status, deadline, next step; rules for which files belong where | say where your files are |
 | 4 | LinkedIn export | Claude tells you where to request it | request it (small archive ~10 min, full ≤ 24 h) |
 | 5 | Topics & exclusions | Claude derives from your projects which contacts fit what, then shows the numbers | strike people, companies, sectors or topics you don't want |
@@ -120,12 +131,13 @@ The full version is in [`PATH.md`](PATH.md). That file is also the instruction s
 PATH.md                             the steps (for Claude and for people)
 .claude/skills/second-brain-path    turns them into the /second-brain-path command
 scripts/setup_vault.py              creates the vault (never overwrites anything)
-scripts/sources.py                  your Claude Code history → candidates you accept, rename, mark private or drop
+scripts/sources.py                  Claude Code history + Claude app export → candidates you accept, rename, merge, mark private or drop
 scripts/import_linkedin.py          LinkedIn export → notes (idempotent, standard library only)
 config/topics.example.json          example: which contacts fit which project
 vault-template/                     PARA structure, templates, dashboard (brain.py), Obsidian plugin
 claude/                             hooks (macOS/Linux and Windows) and a CLAUDE.md snippet
 tests/make_fake_export.py           a made-up export to try things out
+tests/make_fake_claude_app_export.py a made-up Claude app export
 tests/smoke_test.py                 runs the whole path on made-up data, on any OS
 ```
 
@@ -139,7 +151,7 @@ python3 -I tests/smoke_test.py      # Windows: py -3 -I tests/smoke_test.py
 
 - **Everything stays local**, on your machine, in your vault, under your own git. The scripts send nothing anywhere.
 - **You decide what goes in.** Every candidate from your Claude history is shown before anything is written, and anything marked private is never written and never logged.
-- From Claude Code sessions and LinkedIn messages, **only metadata** is used: titles, dates, counts, file paths, whether there was a reply. Contents stay out.
+- From Claude Code sessions, Claude app chats and LinkedIn messages, **only metadata** is used: titles, dates, counts, file paths, whether there was a reply. Contents stay out.
 - People, companies and whole sectors can be excluded from the LinkedIn import.
 - Email addresses, phone numbers, logins, search history and ad data are not imported.
 - Family members can be excluded by last name (`exclude_lastnames`).
