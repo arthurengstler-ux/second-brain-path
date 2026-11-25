@@ -12,14 +12,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # macOS runners are scarce on GitHub, so macOS gets one job; Python 3.9 (the macOS system
+        # Python) is covered on Windows and locally
+        os: [ubuntu-latest, windows-latest]
         python: ["3.10", "3.13"]
         include:
-          # macOS ships Python 3.9 with the command line tools, so test it there and on Windows
-          - os: macos-latest
-            python: "3.9"
           - os: windows-latest
             python: "3.9"
+          - os: macos-latest
+            python: "3.13"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
