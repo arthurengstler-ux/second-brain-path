@@ -197,6 +197,9 @@ def main():
     topics = cfg.get("topics", [])
     msg_topics = cfg.get("message_topics") or DEFAULT_MESSAGE_TOPICS
     exclude = {x.lower() for x in a.exclude_lastname + cfg.get("exclude_lastnames", [])}
+    excl_sectors = set(cfg.get("exclude_sectors", []))
+    excl_people = {x.lower() for x in cfg.get("exclude_people", [])}
+    excl_orgs = [x for x in cfg.get("exclude_organizations", []) if x]
     ex = Export([os.path.expanduser(z) for z in a.zip])
     W = Writer(vault, a.dry_run)
     stamp = f"LinkedIn export, imported {TODAY}"
@@ -267,6 +270,10 @@ def main():
         org, pos = clean(r.get("Company")).replace("|", "/"), clean(r.get("Position")).replace("|", "/")
         t = f"{org} | {pos}"
         sector = "No details" if not org and not pos else next(n for n, rx in sectors if re.search(rx, t, re.I))
+        if (sector in excl_sectors or name.lower() in excl_people
+                or any(re.search(rx, org, re.I) for rx in excl_orgs)):
+            skipped += 1
+            continue
         tp = [x for x in topics if (x.get("regex") and re.search(x["regex"], t, re.I)) or sector in x.get("sectors", [])]
         url = r.get("URL", "")
         path = by_url.get(norm_url(url)) if url else None
@@ -378,7 +385,7 @@ def main():
     text = read(vault / rel, f"---\ntype: moc\nstatus: active\ntags: [career, network, linkedin]\ncreated: {TODAY}\n---\n# LinkedIn Contacts\n\n")
     blk = [f"Source: {stamp}. {len(people)} contacts as person notes in [[05 People]], topic index: [[Who to Ask]]."]
     if skipped:
-        blk.append(f"{skipped} contacts skipped on purpose (no name, or excluded by last name).")
+        blk.append(f"{skipped} contacts skipped on purpose (no name, or excluded by last name, sector, organization or person).")
     if follows:
         blk += ["", "## People you follow (not connected)", ", ".join(follows)]
     W.write(rel, set_block(text, "\n".join(blk) + "\n\nBack to [[Career]]"))

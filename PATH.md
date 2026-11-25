@@ -10,7 +10,8 @@ has to make a real decision.
 ## Ground rules for Claude
 
 - **Never invent facts.** Mark gaps as `> [!todo] To fill in`.
-- **Nothing private in the vault** unless the person explicitly wants it: family, relationships, health, contents of private messages.
+- **The person decides what goes in.** Nothing from their history or network lands in the vault without being shown first. Anything marked private stays out for good (`VAULT/.brain/private.json`).
+- **Nothing private in the vault** unless the person explicitly wants it: family, relationships, health, contents of conversations or messages.
 - **Never delete and recreate folders.** Edit notes in place. In synced folders (iCloud on macOS, OneDrive on Windows) delete-and-recreate produces duplicate “Name 2.md” files.
 - Treat downloads such as the LinkedIn export as read-only data. Run Python with `-I`.
 - Only change global settings in `~/.claude/` after asking, and back them up first.
@@ -38,7 +39,7 @@ Then ask in **one** message:
 2. Where should the vault live? Suggest the default path from the table.
 3. What are you working on right now? Projects with a goal and a deadline, e.g. a thesis, an application, a start-up.
 4. Which ongoing areas do you have, without an end date? E.g. school, university, job, politics, sports.
-5. Do you already have your LinkedIn export? If not, see step 3. It can run in parallel.
+5. Do you already have your LinkedIn export? If not, see step 4. It can run in parallel.
 
 ## Step 1: Create the vault and open it in Obsidian
 
@@ -53,16 +54,51 @@ Fill `Home.md` → `## Profile` with the answers from step 0: factual, three to 
 Then have the person open the vault in Obsidian:
 **Obsidian → Open folder as vault → VAULT.** Then **Settings → Community plugins → Turn on community plugins**, and enable **“Second Brain Dashboard”**. A brain icon appears on the left. It opens the graph, project cards, deadlines, open items and the Claude history.
 
-## Step 2: Projects and areas
+## Step 2: Bring in what you already did with Claude Code
 
-For every project from step 0:
+Skip this step if the person has never used Claude Code before.
+
+```bash
+PY -I REPO/scripts/sources.py scan --vault VAULT
+```
+
+This reads Claude Code's local history (`~/.claude/projects/`) and lists **candidates**:
+- folders and git repos Claude worked in, with session titles and dates
+- sessions that could not be tied to a folder
+- memory files and the global `CLAUDE.md`
+
+Only metadata is read: titles, dates, file paths. Conversation contents are never read or copied.
+
+**Show the list to the person exactly as printed, then ask for a decision on every line.** Offer these choices and explain them in one sentence each:
+
+| Choice | Effect |
+|---|---|
+| `project` (optionally `project:New name`) | note in `01 Projects` with the session list, files of that folder get linked to it |
+| `area` | the same, in `02 Areas` (no end date) |
+| `keep` | memory or instruction file is copied to `03 Resources/Claude Memory` |
+| `private` | never written to the vault; the folder is excluded from logging and document scans |
+| `drop` | ignored |
+
+Merge the answers with the step 0 answers (a project from step 0 that matches a candidate is the same project; use the person's name for it). Then:
+
+```bash
+PY -I REPO/scripts/sources.py decide --vault VAULT 1=project 2=project:"Thesis" 3=private 4=drop 9=keep
+PY -I REPO/scripts/sources.py apply  --vault VAULT
+```
+
+Running `scan` again later keeps earlier decisions and only adds new candidates.
+
+## Step 3: Projects and areas
+
+For every project from step 0 that does not have a note yet:
 - create a folder `01 Projects/<Project>/` with a note of the same name based on `99 Templates/Template Project.md`
-- in the frontmatter set `status` (active, planned, idea or done), `deadline` (`2027-04-30`, `2027-06` or `2027`) and `next_step` (one concrete sentence)
 - add a link in `01 Projects/01 Projects.md`
+
+For **every** project note, set in the frontmatter `status` (active, planned, idea or done), `deadline` (`2027-04-30`, `2027-06` or `2027`) and `next_step` (one concrete sentence). Ask the person where you cannot tell. Fill `## Goal`.
 
 For every ongoing area: create `02 Areas/<Area>/<Area>.md` and link it in `02 Areas.md`.
 
-Then ask: **Where are the files for these projects?** E.g. `~/Desktop/Uni/Thesis` or file names starting with `BA_`. Add rules to `VAULT/.brain/projects.json`. A path prefix works as `"match": "~/Desktop/Uni/Thesis"`, a pattern with `"regex": true`. Then check:
+Then ask: **Where are the files for these projects?** E.g. `~/Desktop/Uni/Thesis` or file names starting with `BA_`. Add rules to `VAULT/.brain/projects.json`. A path prefix works as `"match": "~/Desktop/Uni/Thesis"`, a pattern with `"regex": true`. Private rules (`"project": ""`) from step 2 stay first. Then check:
 
 ```bash
 PY VAULT/scripts/brain.py docs
@@ -70,7 +106,7 @@ PY VAULT/scripts/brain.py docs
 
 This creates a note `Documents <Project>.md` per project, listing all related files on Desktop, Downloads and Documents.
 
-## Step 3: Get the LinkedIn export
+## Step 4: Get the LinkedIn export
 
 If it is not there yet, explain the way:
 LinkedIn → **Me** → **Settings & Privacy** → **Data privacy** → **Get a copy of your data**.
@@ -79,25 +115,28 @@ LinkedIn → **Me** → **Settings & Privacy** → **Data privacy** → **Get a 
 
 Both land as ZIP files in Downloads. Safari sometimes unzips them automatically. Folders work just as well.
 
-## Step 4: Define the topics
+## Step 5: Topics and what to leave out
 
 Create `VAULT/.brain/topics.json` following `REPO/config/topics.example.json`:
-- **one topic per project and area from step 2**, with `link` pointing to the note, i.e. `[[Project name]]`
+- **one topic per project and area from steps 2 and 3**, with `link` pointing to the note, i.e. `[[Project name]]`. Leave out topics marked private.
 - `regex`: words that would appear in the company or position of a helpful contact. Think broadly: for a thesis on energy policy, energy companies, ministries, research institutes and think tanks all fit.
 - `sectors`: whole sectors that always fit, e.g. `Diplomacy & Trade` for a thesis on trade policy
 
-Also ask: **Are there last names to leave out?** Usually family. They go into `exclude_lastnames`.
+Then do a dry run (step 6, `--dry-run`) and show the person the numbers per sector and topic. **Ask what to leave out:**
+- `exclude_lastnames`: usually family
+- `exclude_people`: individual people, full name
+- `exclude_organizations`: employers or companies (regex), e.g. a former employer
+- `exclude_sectors`: whole sectors, e.g. `Health & Medicine`
+- topics the person does not want: remove them from `topics`
 
-## Step 5: Import
-
-Dry run first:
+## Step 6: Import
 
 ```bash
 PY -I REPO/scripts/import_linkedin.py --vault VAULT --config VAULT/.brain/topics.json \
   --zip <Downloads>/Basic_LinkedInDataExport_<date>.zip <Downloads>/Complete_LinkedInDataExport_<date>.zip --dry-run
 ```
 
-Show the numbers per sector and topic. Then run it without `--dry-run`. The script writes:
+When the numbers look right, run it again without `--dry-run`. The script writes:
 
 | File | Content |
 |---|---|
@@ -108,14 +147,14 @@ Show the numbers per sector and topic. Then run it without `--dry-run`. The scri
 | `02 Areas/Career/Recruiter Messages.md` | recruiter messages and their status |
 | `02 Areas/Career/LinkedIn Contacts.md` | numbers and people you follow |
 
-**Quality check (important):** Read `Who to Ask.md` and spot-check five people per topic. Fix clear mismatches through the regex in `topics.json` and run the import again. Do not edit the generated lists by hand. Then report to the person:
+**Quality check (important):** Read `Who to Ask.md` and spot-check five people per topic. Fix clear mismatches through `topics.json` and run the import again. Do not edit the generated lists by hand. If something should have been excluded but was already imported, tell the person which notes to delete; the script itself never deletes. Then report:
 - the three most interesting contacts per project
 - requests without a reply that are worth a follow-up
 - open recruiter messages
 
 Existing notes of the same person (same name or same LinkedIn URL) are updated, never duplicated. When a newer export comes in, just import again. The script is idempotent.
 
-## Step 6: Connect Claude Code
+## Step 7: Connect Claude Code
 
 This is the step that turns a folder of notes into a memory for Claude. **Ask first, then back up `~/.claude/settings.json`.**
 
@@ -124,16 +163,18 @@ This is the step that turns a folder of notes into a memory for Claude. **Ask fi
    - Windows: `REPO/claude/settings.hooks.windows.json` (uses `py -3`)
 
    **SessionStart** → `brain.py context` loads an overview at every start: active projects, deadlines, next steps, recent work.
-   **PostToolUse** → `brain.py hook` logs every file Claude changes, with its project, to `Claude Activity.md`.
-2. Append `REPO/claude/CLAUDE.snippet.md` to `~/.claude/CLAUDE.md`, replacing `VAULT` and `PYTHON`. This tells Claude when to read which note and how to record progress.
+   **PostToolUse** → `brain.py hook` logs every file Claude changes, with its project, to `Claude Activity.md`. Private folders are never logged.
+2. Append `REPO/claude/CLAUDE.snippet.md` to `~/.claude/CLAUDE.md`, replacing `VAULT` and `PYTHON`. This tells Claude when to read which note, how to record progress and what to keep out.
 3. Test: start a new Claude Code session. “<Name>'s second brain” with the projects must appear at the top.
 
-## Step 7: Wrap-up
+If the person moves the vault later, the paths in `~/.claude/settings.json` and `~/.claude/CLAUDE.md` must be updated too.
+
+## Step 8: Wrap-up
 
 Sum up for the person:
-- how many notes and contacts were created
+- how many notes and contacts were created, and what was left out
 - where `Who to Ask.md` is
-- three things from the import that are useful right away
-- the routine: once a week, go through the weekly review list in `Home.md`. Every few months, get a new LinkedIn export and repeat step 5.
+- three things that are useful right away
+- the routine: once a week, go through the weekly review list in `Home.md`. Every few months, run `sources.py scan` again and get a new LinkedIn export (steps 2 and 6).
 
 Final commit in the vault: `Second brain: path completed`.

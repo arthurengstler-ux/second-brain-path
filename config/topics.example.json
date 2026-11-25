@@ -1,12 +1,56 @@
 {
-  "_note": "topics: what a contact can help with. name = heading in 'Who to Ask', link = project note in the vault, regex = match in company or position, sectors = every contact in these sectors belongs to the topic. Claude generates this file from your projects during the path. 'sectors' and 'message_topics' are optional; the script has defaults.",
+  "_note": "topics: what a contact can help with. name = heading in 'Who to Ask', link = project note in the vault, regex = match in company or position, sectors = every contact in these sectors belongs to the topic. Claude generates this file from your projects during the path. 'sectors' and 'message_topics' are optional; the script has defaults. Exclusions: exclude_lastnames (e.g. family), exclude_people (full names), exclude_organizations (regex on company), exclude_sectors (whole sectors, e.g. \"Health & Medicine\"). Excluded contacts are never written; notes imported earlier are not deleted.",
   "exclude_lastnames": [],
+  "exclude_people": [],
+  "exclude_organizations": [],
+  "exclude_sectors": [],
   "topics": [
-    {"name": "Thesis", "link": "[[Thesis]]", "regex": "econom|trade|tariff|geopoli|energy|climate", "sectors": ["Diplomacy & Trade"]},
-    {"name": "University application", "link": "[[University application]]", "regex": "admission|business school|universit|\\bETH\\b|\\bHSG\\b", "sectors": []},
-    {"name": "Start-up", "link": "[[Start-up]]", "regex": "start-?up|venture|founder|angel", "sectors": ["Tech & IT"]},
-    {"name": "Politics", "link": "[[Politics]]", "regex": "party|parliament|politi", "sectors": ["Politics & Government"]},
-    {"name": "Internships & jobs", "link": "[[Career]]", "regex": "recruit|talent|\\bHR\\b|human resources", "sectors": ["Finance & Consulting", "Law"]},
-    {"name": "Press & public", "link": "", "regex": "journalist|editor|press officer|spokes|correspondent|anchor|host", "sectors": ["Media & Communications"]}
+    {
+      "name": "Thesis",
+      "link": "[[Thesis]]",
+      "regex": "econom|trade|tariff|geopoli|energy|climate",
+      "sectors": [
+        "Diplomacy & Trade"
+      ]
+    },
+    {
+      "name": "University application",
+      "link": "[[University application]]",
+      "regex": "admission|business school|universit|\\bETH\\b|\\bHSG\\b",
+      "sectors": []
+    },
+    {
+      "name": "Start-up",
+      "link": "[[Start-up]]",
+      "regex": "start-?up|venture|founder|angel",
+      "sectors": [
+        "Tech & IT"
+      ]
+    },
+    {
+      "name": "Politics",
+      "link": "[[Politics]]",
+      "regex": "party|parliament|politi",
+      "sectors": [
+        "Politics & Government"
+      ]
+    },
+    {
+      "name": "Internships & jobs",
+      "link": "[[Career]]",
+      "regex": "recruit|talent|\\bHR\\b|human resources",
+      "sectors": [
+        "Finance & Consulting",
+        "Law"
+      ]
+    },
+    {
+      "name": "Press & public",
+      "link": "",
+      "regex": "journalist|editor|press officer|spokes|correspondent|anchor|host",
+      "sectors": [
+        "Media & Communications"
+      ]
+    }
   ]
 }

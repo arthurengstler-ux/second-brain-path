@@ -24,7 +24,8 @@ A **second brain**: an Obsidian vault of Markdown notes that Claude reads automa
 ```mermaid
 flowchart LR
     A[LinkedIn export] -->|import_linkedin.py| V[(Second brain<br/>Obsidian vault)]
-    P[Your projects<br/>and files] -->|path, step 2| V
+    H[Your Claude Code<br/>history] -->|sources.py<br/>you pick what goes in| V
+    P[Your projects<br/>and files] -->|path, step 3| V
     V -->|SessionStart hook| C[Claude Code<br/>knows projects, deadlines,<br/>files, contacts]
     C -->|PostToolUse hook<br/>+ log entries| V
     V --> D[Dashboard in Obsidian<br/>graph, deadlines, to-dos]
@@ -35,6 +36,7 @@ flowchart LR
 | Before | After |
 |---|---|
 | “I'm writing a thesis on …, the file is in …” | Claude starts with your *active projects, upcoming deadlines, next steps, recent work* |
+| Past Claude sessions scattered and forgotten | Your earlier Claude Code work becomes project notes, with session titles and dates. You choose what goes in and what stays private |
 | Hunting for files | One note per project, `Documents <project>`, listing every related file on Desktop, Downloads and Documents |
 | “Who could I ask for an interview?” | `Who to Ask.md`: your LinkedIn contacts, sorted by topic and project |
 | Forgotten follow-ups | A list of requests that never got a reply, and of open recruiter messages |
@@ -104,12 +106,13 @@ The full version is in [`PATH.md`](PATH.md). That file is also the instruction s
 |---|---|---|---|
 | 0 | Check & get to know you | Claude checks Python, git and Obsidian, then asks about your name, projects and areas | answer ~5 questions |
 | 1 | Create the vault | PARA folders, templates, dashboard, git; open it in Obsidian | enable the plugin once |
-| 2 | Projects | One note per project with status, deadline, next step; rules for which files belong where | say where your files are |
-| 3 | LinkedIn export | Claude tells you where to request it | request it (small archive ~10 min, full ≤ 24 h) |
-| 4 | Topics | Claude derives from your projects which contacts fit what | name people to leave out (e.g. family) |
-| 5 | Import | CV, one note per contact, `Who to Ask`, recruiters, contact history | look at a few samples |
-| 6 | Connect Claude | Hooks and CLAUDE.md, so Claude reads and maintains the vault in every session | approve once |
-| 7 | Wrap-up | Summary and a weekly routine | – |
+| 2 | Your Claude history | Claude lists the folders, repos and sessions you already worked on, plus memory files | mark each one: project, area, keep, **private** or drop |
+| 3 | Projects | One note per project with status, deadline, next step; rules for which files belong where | say where your files are |
+| 4 | LinkedIn export | Claude tells you where to request it | request it (small archive ~10 min, full ≤ 24 h) |
+| 5 | Topics & exclusions | Claude derives from your projects which contacts fit what, then shows the numbers | strike people, companies, sectors or topics you don't want |
+| 6 | Import | CV, one note per contact, `Who to Ask`, recruiters, contact history | look at a few samples |
+| 7 | Connect Claude | Hooks and CLAUDE.md, so Claude reads and maintains the vault in every session | approve once |
+| 8 | Wrap-up | Summary and a weekly routine | – |
 
 ## What's in the repo
 
@@ -117,25 +120,27 @@ The full version is in [`PATH.md`](PATH.md). That file is also the instruction s
 PATH.md                             the steps (for Claude and for people)
 .claude/skills/second-brain-path    turns them into the /second-brain-path command
 scripts/setup_vault.py              creates the vault (never overwrites anything)
+scripts/sources.py                  your Claude Code history → candidates you accept, rename, mark private or drop
 scripts/import_linkedin.py          LinkedIn export → notes (idempotent, standard library only)
 config/topics.example.json          example: which contacts fit which project
 vault-template/                     PARA structure, templates, dashboard (brain.py), Obsidian plugin
 claude/                             hooks (macOS/Linux and Windows) and a CLAUDE.md snippet
 tests/make_fake_export.py           a made-up export to try things out
+tests/smoke_test.py                 runs the whole path on made-up data, on any OS
 ```
 
-Try it without your own data (macOS/Linux; on Windows use `py -3` and a folder like `%TEMP%`):
+Try the whole thing on made-up data, without touching your own files:
 
 ```bash
-python3 -I tests/make_fake_export.py /tmp/fake.zip
-python3 -I scripts/setup_vault.py --vault /tmp/test-brain --owner "Alex Sample's"
-python3 -I scripts/import_linkedin.py --vault /tmp/test-brain --zip /tmp/fake.zip --config config/topics.example.json
+python3 -I tests/smoke_test.py      # Windows: py -3 -I tests/smoke_test.py
 ```
 
 ## Privacy
 
 - **Everything stays local**, on your machine, in your vault, under your own git. The scripts send nothing anywhere.
-- From messages, **only metadata** is used: date, count, rough topic, whether there was a reply. Contents stay out.
+- **You decide what goes in.** Every candidate from your Claude history is shown before anything is written, and anything marked private is never written and never logged.
+- From Claude Code sessions and LinkedIn messages, **only metadata** is used: titles, dates, counts, file paths, whether there was a reply. Contents stay out.
+- People, companies and whole sectors can be excluded from the LinkedIn import.
 - Email addresses, phone numbers, logins, search history and ad data are not imported.
 - Family members can be excluded by last name (`exclude_lastnames`).
 - Your vault does **not** belong in a public repository. This repo contains only the tooling, no data.

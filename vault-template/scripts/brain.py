@@ -427,6 +427,8 @@ def run_hook():
     file = os.path.abspath(os.path.expanduser(file))
     if file in (str(ACTIVITY_NOTE), str(SNAPSHOT)) or "/.brain/" in file.replace("\\", "/"):
         return
+    if rule_project(file) == "":
+        return  # marked private or ignored: never log
     project = map_project(file) or map_project(data.get("cwd", "")) or "Other"
     if record(project, file, data.get("tool_name", ""), data.get("session_id", "")):
         write_activity_note()
