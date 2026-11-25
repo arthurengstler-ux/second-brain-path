@@ -215,3 +215,21 @@ Sum up for the person:
 - the routine: once a week, go through the weekly review list in `Home.md`. Every few months, run `sources.py scan` again (with a fresh Claude app export if the person uses the app) and get a new LinkedIn export (steps 2 and 6).
 
 Final commit in the vault: `Second brain: path completed`.
+
+## Later: keeping it up to date
+
+LinkedIn has no interface for personal contact lists, and automating the website is against its terms. New contacts therefore come in through a **fresh export**, every two to three months or before something where the network matters (applications, a thesis with interviews). When the person says “update my contacts”, do this:
+
+1. Have them request a new export (step 4). The smaller archive is enough; it arrives in about 10 minutes.
+2. Sort only what is new:
+   ```bash
+   PY -I REPO/scripts/classify.py prepare --vault VAULT --zip <new export> --config VAULT/.brain/topics.json
+   ```
+   Only **new contacts and people whose position or organization changed** end up in the new batches. Everyone sorted before keeps their topics and reasons. If the topics themselves changed (a new project, a finished one), use `--all` to re-sort everyone.
+3. Read the new batches, write their answer files, run `classify.py merge`.
+4. Run the import with the new export (step 6). It adds new people, updates job titles and contact history, and never touches the `## Notes` the person wrote.
+5. Report: how many new contacts, who changed jobs, who is new in `Who to Ask.md`, new requests without a reply, new recruiter messages.
+
+People who removed the connection stay in the vault; the script never deletes. Offer to delete their notes if the person wants that.
+
+For Claude history, run `sources.py scan` again (with a fresh Claude app export if needed): earlier decisions are kept, only new candidates need a decision.

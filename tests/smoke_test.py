@@ -116,17 +116,44 @@ try:
     print("classify.py (Claude sorts contacts)")
     check("Paul Probe" in who.split("## University application")[-1], "before: keyword rule puts the professor under University application")
     run(REPO / "scripts/classify.py", "prepare", "--vault", vault, "--zip", tmp / "export.zip", "--config", tmp / "topics.json")
-    batch = (vault / ".brain/classify/batch-01.md").read_text(encoding="utf-8")
+    first_batch = sorted((vault / ".brain/classify").glob("batch-*.md"))[0]
+    batch = first_batch.read_text(encoding="utf-8")
     check("Erika" not in batch and "Probe" not in batch, "batches contain no names")
     ids = {l.split(" | ")[2]: l.split(" | ")[0] for l in batch.splitlines() if " | " in l and l[0].isdigit()}
     # what Claude would write: the trade commissioner fits the thesis, the professor fits nothing
-    (vault / ".brain/classify/batch-01.answers.json").write_text(json.dumps(
+    first_batch.with_name(first_batch.stem + ".answers.json").write_text(json.dumps(
         {ids["ADVANTAGE AUSTRIA"]: {"topics": ["Thesis"], "reason": "trade commissioner, sees export rules first-hand"}}), encoding="utf-8")
     run(REPO / "scripts/classify.py", "merge", "--vault", vault, "--config", tmp / "topics.json")
     run(*args)
     who = (vault / "05 People/Who to Ask.md").read_text(encoding="utf-8")
     check("sees export rules first-hand" in who, "Claude's reason shown in Who to Ask")
     check("Paul Probe" not in who.split("## All sectors")[0], "contact Claude found unfitting is no longer suggested")
+
+    print("a newer LinkedIn export (new contact, someone changed job)")
+    import zipfile
+    with zipfile.ZipFile(tmp / "export.zip") as z:
+        files = {n: z.read(n).decode("utf-8") for n in z.namelist()}
+    files["Connections.csv"] = (files["Connections.csv"]
+        .replace("University of Zurich,Professor", "Example Trade Institute,Trade Economist")
+        + "Nina,New,https://www.linkedin.com/in/nina-new,,Example Ministry of Trade,Policy Advisor,20 Nov 2026\n")
+    with zipfile.ZipFile(tmp / "export2.zip", "w") as z:
+        for n, c in files.items():
+            z.writestr(n, c)
+    out = run(REPO / "scripts/classify.py", "prepare", "--vault", vault, "--zip", tmp / "export2.zip", "--config", tmp / "topics.json")
+    check(out.startswith("2 contacts to sort"), "only the new contact and the job changer go to Claude")
+    new_batch = sorted((vault / ".brain/classify").glob("batch-*.md"))[-1]
+    ids = {l.split(" | ")[2]: l.split(" | ")[0] for l in new_batch.read_text(encoding="utf-8").splitlines() if " | " in l and l[0].isdigit()}
+    new_batch.with_name(new_batch.stem + ".answers.json").write_text(json.dumps(
+        {ids["Example Ministry of Trade"]: {"topics": ["Thesis"], "reason": "trade policy advisor"},
+         ids["Example Trade Institute"]: {"topics": ["Thesis"], "reason": "trade economist, fits the thesis now"}}), encoding="utf-8")
+    run(REPO / "scripts/classify.py", "merge", "--vault", vault, "--config", tmp / "topics.json")
+    run(REPO / "scripts/import_linkedin.py", "--vault", vault, "--zip", tmp / "export2.zip", "--config", tmp / "topics.json", "--exclude-lastname", "Sample")
+    who = (vault / "05 People/Who to Ask.md").read_text(encoding="utf-8")
+    thesis_part = who.split("## Thesis")[1].split("##")[0]
+    check("Nina New" in thesis_part and "Paul Probe" in thesis_part and "sees export rules first-hand" in thesis_part,
+          "new and changed contacts added, earlier sorting kept")
+    out = run(REPO / "scripts/classify.py", "prepare", "--vault", vault, "--zip", tmp / "export2.zip", "--config", tmp / "topics.json")
+    check(out.startswith("nothing new to sort"), "running prepare again finds nothing new")
 
     print("brain.py")
     brain = vault / "scripts/brain.py"

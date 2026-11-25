@@ -7,12 +7,15 @@
 
 prepare  writes the contacts in batches of 80 lines: "id | position | organization". Names are left out on purpose:
          the decision only needs role and organization. Exclusions from topics.json are applied first.
-merge    checks Claude's answers and writes VAULT/.brain/assignments.json. import_linkedin.py then uses these
+         With a newer export, only new contacts and people whose position or organization changed are listed.
+         --all re-sorts everyone (e.g. after changing the topics).
+merge    checks Claude's answers and updates VAULT/.brain/assignments.json (earlier results are kept). import_linkedin.py then uses these
          assignments (with a short reason per person) instead of the keyword rules for every contact listed there.
 
 Python standard library only. Works on macOS, Windows and Linux.
 """
 import argparse
+import datetime as dt
 import json
 import os
 import re
@@ -52,6 +55,14 @@ def load_cfg(p):
     return json.loads(Path(os.path.expanduser(p)).read_text(encoding="utf-8")) if p else {}
 
 
+def load_json(p, default):
+    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else default
+
+
+def index_entry(v):
+    return v if isinstance(v, dict) else {"url": v, "pos": None, "org": None}  # older index format
+
+
 def cmd_prepare(a, vault, out):
     cfg = load_cfg(a.config)
     topics = cfg.get("topics", [])
@@ -62,40 +73,63 @@ def cmd_prepare(a, vault, out):
     ex_people = {x.lower() for x in cfg.get("exclude_people", [])}
     ex_orgs = [x for x in cfg.get("exclude_organizations", []) if x]
     ex_sectors = set(cfg.get("exclude_sectors", []))
-    rows = []
+    assigned = load_json(vault / ".brain" / "assignments.json", {})
+    rows, unchanged = [], 0
     for r in Export([os.path.expanduser(z) for z in a.zip]).rows("Connections.csv"):
         first, last = clean(r.get("First Name")), clean(r.get("Last Name"))
         name = safe_name(first, last)
-        org, pos = clean(r.get("Company")), clean(r.get("Position"))
+        org, pos = clean(r.get("Company")).replace("|", "/"), clean(r.get("Position")).replace("|", "/")
         if not name or not r.get("URL") or (not org and not pos) or last.lower() in ex_last or name.lower() in ex_people:
             continue
         sector = next(n for n, rx in sectors if re.search(rx, f"{org} | {pos}", re.I))
         if sector in ex_sectors or any(re.search(rx, org, re.I) for rx in ex_orgs):
             continue
-        rows.append(dict(url=r["URL"], pos=pos.replace("|", "/"), org=org.replace("|", "/")))
+        old = assigned.get(norm_url(r["URL"]))
+        # only new contacts and people who changed job; --all re-sorts everyone (e.g. after changing topics)
+        if old and not a.all and old.get("pos", pos) == pos and old.get("org", org) == org:
+            unchanged += 1
+            continue
+        rows.append(dict(url=r["URL"], pos=pos, org=org))
+    topics_now = [[t["name"], t.get("description", "")] for t in topics]
+    snap = out / "topics-snapshot.json"
+    if snap.exists() and load_json(snap, []) != topics_now and not a.all:
+        print("note: topics changed since the last sorting. Run prepare --all to re-sort everyone against the new topics.")
+    if not rows:
+        print(f"nothing new to sort ({unchanged} contacts already sorted and unchanged)")
+        return
     out.mkdir(parents=True, exist_ok=True)
+    index = load_json(out / "index.json", {})
+    next_id = max([int(k) for k in index] or [0]) + 1
+    base = tag = dt.date.today().strftime("%Y%m%d")
+    k = 1
+    while list(out.glob(f"batch-{tag}-*.md")):   # second run on the same day: batch-20261125r2-01.md
+        k += 1
+        tag = f"{base}r{k}"
     tlist = "\n".join(f"- **{t['name']}**: {t.get('description') or t.get('link') or ''}".rstrip(": ") for t in topics)
     batches = [rows[i:i + BATCH] for i in range(0, len(rows), BATCH)]
-    index = {}
     for n, b in enumerate(batches, 1):
         lines = []
         for r in b:
-            i = str(len(index) + 1)
-            index[i] = r["url"]
+            i = str(next_id)
+            next_id += 1
+            index[i] = r
             lines.append(f"{i} | {r['pos'] or '-'} | {r['org'] or '-'}")
-        f = out / f"batch-{n:02d}.md"
+        f = out / f"batch-{tag}-{n:02d}.md"
         with open(f, "w", encoding="utf-8", newline="\n") as fh:
-            fh.write(HEADER.format(n=n, total=len(batches), topics=tlist, answers=f"batch-{n:02d}.answers.json") + "\n".join(lines) + "\n")
-    (out / "index.json").write_text(json.dumps(index, indent=0), encoding="utf-8")
-    print(f"{len(rows)} contacts in {len(batches)} batches: {out}")
-    print("Next: read each batch-NN.md, write batch-NN.answers.json, then run: classify.py merge")
+            fh.write(HEADER.format(n=n, total=len(batches), topics=tlist, answers=f.stem + ".answers.json") + "\n".join(lines) + "\n")
+    (out / "index.json").write_text(json.dumps(index, indent=0, ensure_ascii=False), encoding="utf-8")
+    snap.write_text(json.dumps(topics_now, ensure_ascii=False), encoding="utf-8")
+    print(f"{len(rows)} contacts to sort in {len(batches)} new batches ({unchanged} already sorted and unchanged): {out}")
+    print(f"Next: read each batch-{tag}-NN.md, write the .answers.json it asks for, then run: classify.py merge")
 
 
 def cmd_merge(a, vault, out):
     cfg = load_cfg(a.config)
     names = {t["name"] for t in cfg.get("topics", [])}
-    index = json.loads((out / "index.json").read_text(encoding="utf-8"))
-    result, problems, missing = {}, [], []
+    index = {k: index_entry(v) for k, v in load_json(out / "index.json", {}).items()}
+    ap = vault / ".brain" / "assignments.json"
+    result = load_json(ap, {})   # keep everything sorted earlier; newer batches win
+    problems, missing, fresh = [], [], 0
     for b in sorted(out.glob("batch-*.md")):
         ans = b.with_name(b.stem + ".answers.json")
         if not ans.exists():
@@ -106,28 +140,31 @@ def cmd_merge(a, vault, out):
         except ValueError as e:
             problems.append(f"{ans.name}: not valid JSON ({e})")
             continue
-        # every contact Claude has seen counts as decided, even with no topic (no fallback to keyword rules)
-        for line in b.read_text(encoding="utf-8").splitlines():
-            m = re.match(r"^(\d+) \| ", line)
-            if m and m.group(1) in index:
-                result.setdefault(norm_url(index[m.group(1)]), {"topics": [], "reason": ""})
+        seen = [m.group(1) for m in (re.match(r"^(\d+) \| ", l) for l in b.read_text(encoding="utf-8").splitlines()) if m]
+        for i in seen:   # every contact Claude has seen counts as decided, even with no topic
+            e = index.get(i)
+            if e:
+                key = norm_url(e["url"])
+                fresh += key not in result
+                result[key] = {"topics": [], "reason": "", "pos": e["pos"], "org": e["org"]}
         for i, v in data.items():
-            if str(i) not in index:
-                problems.append(f"{ans.name}: unknown id {i}")
+            e = index.get(str(i))
+            if not e or str(i) not in seen:
+                problems.append(f"{ans.name}: id {i} is not in this batch")
                 continue
             tps = [t for t in v.get("topics", []) if t in names]
             bad = [t for t in v.get("topics", []) if t not in names]
             if bad:
                 problems.append(f"{ans.name}: id {i} has unknown topics {bad}")
-            result[norm_url(index[str(i)])] = {"topics": tps, "reason": str(v.get("reason", ""))[:120] if tps else ""}
+            result[norm_url(e["url"])].update(topics=tps, reason=str(v.get("reason", ""))[:120] if tps else "")
     if missing:
         print("missing answers:", ", ".join(missing))
     for p in problems:
         print("problem:", p)
-    (vault / ".brain" / "assignments.json").write_text(json.dumps(result, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
+    ap.write_text(json.dumps(result, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
     per = {t: sum(1 for v in result.values() if t in v["topics"]) for t in sorted(names)}
     hits = sum(1 for v in result.values() if v["topics"])
-    print(f"{len(result)} of {len(index)} contacts sorted by Claude, {hits} fit a topic: " + ", ".join(f"{k} {v}" for k, v in per.items()))
+    print(f"{len(result)} contacts sorted by Claude ({fresh} new this time), {hits} fit a topic: " + ", ".join(f"{k} {v}" for k, v in per.items()))
     print("Next: run import_linkedin.py again. It now uses VAULT/.brain/assignments.json.")
     sys.exit(1 if problems or missing else 0)
 
@@ -142,6 +179,7 @@ def main():
     ap.add_argument("--vault", required=True)
     ap.add_argument("--zip", nargs="+", help="LinkedIn export(s), ZIP or folder (prepare only)")
     ap.add_argument("--config", required=True)
+    ap.add_argument("--all", action="store_true", help="prepare: re-sort every contact, not only new or changed ones")
     a = ap.parse_args()
     vault = Path(os.path.expandvars(os.path.expanduser(a.vault))).resolve()
     out = vault / ".brain" / "classify"

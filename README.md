@@ -134,6 +134,10 @@ The full version is in [`PATH.md`](PATH.md). That file is also the instruction s
 | 7 | Connect Claude | Hooks and CLAUDE.md, so Claude reads and maintains the vault in every session | approve once |
 | 8 | Wrap-up | Summary and a weekly routine | – |
 
+## Keeping it up to date
+
+LinkedIn has no interface for your own contact list, so new contacts come in through a fresh export every few months. Tell Claude “update my contacts” and it walks you through it: request the export (~10 minutes), then Claude sorts **only the new contacts and people who changed jobs**, keeps everything it sorted before, and updates titles and contact history. Your own notes on a person are never touched. Details: [PATH.md, “Later”](PATH.md#later-keeping-it-up-to-date).
+
 ## What's in the repo
 
 ```
