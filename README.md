@@ -154,7 +154,7 @@ tests/make_fake_export.py           a made-up export to try things out
 tests/make_fake_claude_app_export.py a made-up Claude app export
 tests/make_demo_vault.py            a full demo vault (~300 made-up contacts) for screenshots
 tests/smoke_test.py                 runs the whole path on made-up data, on any OS
-.github/workflows/                  smoke test on every push: Windows + Linux (badge), macOS separately
+.github/workflows/                  smoke test on every push on Windows + Linux (badge); macOS on demand
 ```
 
 Try the whole thing on made-up data, without touching your own files:

@@ -1,8 +1,8 @@
 name: test-macos
 
+# Started by hand (Actions tab > test-macos > Run workflow): GitHub's macOS runners are often
+# out of capacity, and a cancelled run would mark every commit with a red cross.
 on:
-  push:
-  pull_request:
   workflow_dispatch:
 
 jobs:
